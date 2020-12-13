@@ -1,0 +1,18 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block content %}
+
+
+
+    <p>{{ instance.string_diff|safe }}</p>
+
+<form action="" method="post">
+    {% csrf_token %}
+
+    <input type="hidden" name="action" value="assign_category" />
+    <a href="http://127.0.0.1:8001/admin/diff/prototype/{{ instance.id }}/"><input name="_back" type="button" value="back" /></a>
+
+</form>
+
+{% endblock %}
