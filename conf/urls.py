@@ -16,11 +16,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from musicfa.views import export_musicfa_songs, export_nicmusic_songs
+from apps.musicfa.views import export_musicfa_songs, export_nicmusic_songs
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('musicfa/export-songs/', export_musicfa_songs, name="export_musicfa_songs"),
     path('nicmusic/export-songs/', export_nicmusic_songs, name="export_nicmusic_songs"),
-
 ]
