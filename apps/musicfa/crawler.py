@@ -196,23 +196,16 @@ class MusicfaCrawler(Crawler):
 
     def collect_files(self):
         logger.info(f'>> Collecting the files of CMusic.')
-        bulk_update_objects = []
         for c in self.get_crawled_musics():
             c.file_mp3_128 = self.download_content(c.link_mp3_128)
             c.file_mp3_320 = self.download_content(c.link_mp3_320)
             c.file_thumbnail = self.download_content(c.link_thumbnail)
             c.is_downloaded = True
-            print('c.file_mp3_128', c.file_mp3_128.path)
-            print('c.file_mp3_320', c.file_mp3_320.path)
-            print('c.file_thumbnail', c.file_thumbnail)
-            c.save()
-            # bulk_update_objects.append(c)
-
-        # CMusic.objects.bulk_update(
-        #     bulk_update_objects,
-        #     fields=['updated_time', 'file_mp3_128', 'file_mp3_320', 'file_thumbnail']
-        # )
-        logger.info(f'>> {len(bulk_update_objects)} number updated.')
+            try:
+                c.save()
+            except Exception as e:
+                logger.error(f'>> collect files failed CMusic id: {c.id}')
+                PrintException()
 
     def collect_musicfa_singers_pages(self):
         url = "https://music-fa.com"
