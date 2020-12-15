@@ -1,12 +1,16 @@
 import logging
+from urllib.parse import unquote
+
 from datetime import datetime
+from django.core.files import File
+from django.core.files.temp import NamedTemporaryFile
 
 import requests
 from bs4 import BeautifulSoup
-
 from khayyam import JalaliDate
 
-from .models import CrawledMusic
+from .models import CMusic
+from .utils import PrintException
 
 jalali_months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
 months = ["ژانویه", "فوریه", "مارس", "آوریل", "می", "ژوئن", "جولای", "آگوست", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"]
@@ -24,26 +28,38 @@ class Crawler:
     def collect_musics(self):
         raise NotImplementedError()
 
-    # def download_image(self, url):
-    #     """
-    #     Args:
-    #         url: url of news image that takes from page
-    #         defaults: data for create a new field
-    #
-    #     Returns: Image <django.core.files.File> to save in ImageField <news_image>
-    #     """
-    #     r = requests.get(url, allow_redirects=False)
-    #     img_temp = NamedTemporaryFile(delete=True)
-    #     img_temp.write(r.content)
-    #     img_temp.flush()  # deleting the file from RAM
-    #     return File(img_temp, name=url.split('/')[-1])
+    def collect_files(self):
+        pass
+
+    def get_crawled_musics(self):
+        """
+        Getting the CMusic that file of them is not downloaded.
+        :return: A queryset of CMusic.
+        """
+        for c in CMusic.objects.filter(is_downloaded=False):
+            yield c
+
+    def download_content(self, url):
+        """
+        :param url: URL of file to download the it.
+        :return: File to save in CMusic object.
+        """
+        try:
+            logger.info(f'>> Starting Download the URL: {url}')
+            r = requests.get(url, allow_redirects=False)
+        except Exception as e:
+            logger.error(f'>> Downloading file failed. {e}')
+            return None
+        img_temp = NamedTemporaryFile(delete=True)
+        img_temp.write(r.content)
+        img_temp.flush()  # deleting the file from RAM
+        return File(img_temp, name=unquote(url).split('/')[-1])
 
 
 class MusicfaCrawler(Crawler):
     website_name = 'music-fa'
 
     def __init__(self):
-        print(f'Starting crawler for {self.website_name}')
         logger.info(f'Starting crawler for {self.website_name}')
 
     def collect_links(self):
@@ -80,7 +96,6 @@ class MusicfaCrawler(Crawler):
                         for char in name:
                             if char in alpha:
                                 name_en += char
-
                     song_name_start_index = name_en.index("Called ")
                     artist_name_start_index = name_en.index("By ")
                     post_type_start_index = name_en.index("Download ")
@@ -154,7 +169,7 @@ class MusicfaCrawler(Crawler):
                     # publish_date_jalali = f"{int(published_date_jalali_str[2])}/{int(published_date_j
                     # alali_str[1])}/{int(published_date_jalali_str[0])}"
                     if len(artist_name_en) > 0:
-                        music, created = CrawledMusic.objects.get_or_create(
+                        music, created = CMusic.objects.get_or_create(
                             post_name_url=url,
                             defaults={
                                 "title": title,
@@ -166,16 +181,38 @@ class MusicfaCrawler(Crawler):
                                 "artist_name_en": artist_name_en,
                                 "link_mp3_128": quality_128,
                                 "link_mp3_320": quality_320,
-                                "thumbnail_photo": thumbnail,
+                                "link_thumbnail": thumbnail,
                                 "published_date": greek_published_date
                             }
                         )
-                        logger.info(f"{self.website_name} Song Created... post_url: {url}")
+                        logger.info(f">> {self.website_name} Song Created... post_url: {url}")
                 except Exception as e:
-                    logger.error(f'collect music {self.website_name} >>> inner{e}')
+                    logger.error(f'>> 1 collect music {self.website_name}')
+                    PrintException()
                     continue
         except Exception as e:
-            logger.error(f'collect music {self.website_name} >>> inner{e}')
+            logger.error(f'>> collect music {self.website_name}')
+            PrintException()
+
+    def collect_files(self):
+        logger.info(f'>> Collecting the files of CMusic.')
+        bulk_update_objects = []
+        for c in self.get_crawled_musics():
+            c.file_mp3_128 = self.download_content(c.link_mp3_128)
+            c.file_mp3_320 = self.download_content(c.link_mp3_320)
+            c.file_thumbnail = self.download_content(c.link_thumbnail)
+            c.is_downloaded = True
+            print('c.file_mp3_128', c.file_mp3_128.path)
+            print('c.file_mp3_320', c.file_mp3_320.path)
+            print('c.file_thumbnail', c.file_thumbnail)
+            c.save()
+            # bulk_update_objects.append(c)
+
+        # CMusic.objects.bulk_update(
+        #     bulk_update_objects,
+        #     fields=['updated_time', 'file_mp3_128', 'file_mp3_320', 'file_thumbnail']
+        # )
+        logger.info(f'>> {len(bulk_update_objects)} number updated.')
 
     def collect_musicfa_singers_pages(self):
         url = "https://music-fa.com"
@@ -202,5 +239,4 @@ class MusicfaCrawler(Crawler):
         url = "https://iran-music.net/download-full-album-in-one/"
         page = requests.get(url)
         soup = BeautifulSoup(page.text, "html.parser")
-
         full_album_list = soup.find("div", class_="iranthemes_center").find("ul").find_all("li")

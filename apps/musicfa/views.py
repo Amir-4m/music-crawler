@@ -1,12 +1,12 @@
 from django.shortcuts import render
 
-from .models import CrawledMusic
+from .models import CMusic
 
 
 # Create your views here.
 
 def export_musicfa_songs(request):
-    musics = CrawledMusic.objects.all()
+    musics = CMusic.objects.all()
     response = render(request,
                       'export_songs.html',
                       {'musics': musics, },
@@ -16,7 +16,7 @@ def export_musicfa_songs(request):
 
 
 def export_nicmusic_songs(request):
-    musics = CrawledMusic.objects.all()
+    musics = CMusic.objects.all()
     response = render(request,
                       'export_nimusic.html',
                       {'musics': musics, },
