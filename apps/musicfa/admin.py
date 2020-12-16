@@ -6,7 +6,7 @@ from .models import CMusic
 
 @admin.register(CMusic)
 class CMusicAdmin(admin.ModelAdmin):
-    list_display = ("title", "song_name_fa", "artist_name_fa", "song_name_en", "artist_name_en", "post_type")
+    list_display = ("title", "song_name_en", "artist_name_en", "post_type")
     ordering = ['-id']
 
 
