@@ -16,7 +16,6 @@ class UploadTo:
 
     def __call__(self, instance, filename):
         path = self.path_creator(instance) or f'{filename}'
-        print("path", path)
         return path
 
     def path_creator(self, instance):
@@ -27,7 +26,6 @@ class UploadTo:
         :return: Created path from URL of site.
         """
         value = unquote(getattr(instance, f'link_{self.field_name}', ''))
-        print('value', value)
         if value.find('/nicmusic/') != -1:
             return f"{value[value.index('/nicmusic/') + 10:]}"
         elif value.find('/wp-content/') != -1:

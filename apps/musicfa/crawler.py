@@ -1,6 +1,6 @@
 import logging
+import sys
 from urllib.parse import unquote
-
 
 from datetime import datetime
 from django.core.files import File
@@ -9,7 +9,7 @@ from django.core.files.temp import NamedTemporaryFile
 import requests
 from bs4 import BeautifulSoup
 
-from .models import CMusic
+from .models import CMusic, Artist, Album
 from .utils import PrintException, per_num_to_eng
 
 months = ["ژانویه", "فوریه", "مارس", "آوریل", "می", "ژوئن", "جولای", "آگوست", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"]
@@ -84,12 +84,35 @@ class Crawler:
         return File(img_temp, name=unquote(url).split('/')[-1])
 
     def fix_jdate(self, date_str, correct_month):
-        print(date_str)
         for i, t in enumerate(correct_month):
             if t in date_str:
                 month_text = date_str[date_str.find(t[0]):date_str.find(t[-2]) + 2]
-                print(month_text, i)
                 return date_str.replace(month_text, f'{i}')
+
+    def create_artist(self, name_en, name_fa=''):
+        artist, created = Artist.objects.get_or_create(
+            name_en=name_en,
+            defaults=dict(name_fa=name_fa)
+        )
+        if created:
+            logger.info(f'>> New Artist Created id:{artist.id} name: {artist.name_en}')
+        return artist
+
+    def create_music(self, **kwargs):
+        c_music, created = CMusic.objects.get_or_create(
+            **kwargs
+        )
+        if created:
+            logger.info(f'>> New Single Music Created id:{c_music} album id: {c_music.album_id}')
+
+    def create_album(self, album_name_en, **kwargs):
+        album, created = Album.objects.get_or_create(
+            album_name_en=album_name_en,
+            defaults=kwargs
+        )
+        if created:
+            logger.info(f'>> New Album Created id: {album.id}')
+        return album
 
 
 class NicMusicCrawler(Crawler):
@@ -177,7 +200,7 @@ class NicMusicCrawler(Crawler):
                     publish_date = self.fix_jdate(soup.find("div", class_="times").get_text().strip(), months)
                     publish_date = datetime.strptime(publish_date, '%m %d, %Y')
                     if len(artist_name_en) > 0:
-                        music, created = CMusic.objects.get_or_create(
+                        kwargs = dict(
                             post_name_url=url,
                             defaults={
                                 "title": title,
@@ -185,15 +208,14 @@ class NicMusicCrawler(Crawler):
                                 "song_name_en": song_name_en,
                                 "post_type": post_type,
                                 "lyrics": lyrics,
-                                "artist_name_fa": artist_name_fa,
-                                "artist_name_en": artist_name_en,
+                                "artist": self.create_artist(artist_name_en, artist_name_fa),
                                 "link_mp3_128": quality_128,
                                 "link_mp3_320": quality_320,
                                 "link_thumbnail": thumbnail,
                                 "published_date": publish_date
                             }
                         )
-                        logger.info(f">> {self.website_name} Song Created... post_url: {url}")
+                        self.create_music(**kwargs)
                 except Exception as e:
                     logger.error(f'>> 1 collect music {self.website_name}')
                     PrintException()
@@ -213,61 +235,66 @@ class Ganja2MusicCrawler(Crawler):
         :return: Post link of each music to reach a single music
         """
         super().collect_links()
-        for link in self.collect_post_links('archive/album/'):
-            yield link, 'album'
-        for link in self.collect_post_links('archive/single/'):
-            yield link, 'single'
 
-    def collect_musics(self):
+    def get_download_link(self, soup):
+        # Download link
+        link_320 = ''
+        link_128 = ''
+        music_dl_links = soup.find_all('a', class_='dlbter')
+        for link in music_dl_links:
+            if '320' in link.get_text():
+                link_320 = link.attrs['href']
+            elif '128' in link.get_text():
+                link_128 = link.attrs.get('href')
+        return link_128, link_320
+
+    def get_thumbnail(self, soup):
+        # Thumbnail
+        link_thumbnail = soup.find('div', class_='insidercover').find('a').attrs['href']
+        return "/".join(filter(None, map(lambda x: str(x).rstrip('/'), (self.base_url, link_thumbnail[1:]))))
+
+    def get_content_section_info(self, soup):
+        # Name of Music, Artist and Publish Date
+        content_section = soup.find('div', class_='content')
+        song_name_en = content_section.find('h2').get_text()
+        artist_name_en = content_section.find('div', class_='thisinfo').find('a').get_text()
+        publish_date = per_num_to_eng(self.fix_jdate(
+            content_section.find('div', class_='feater').find('b').get_text(),
+            jalali_months
+        ))
+        publish_date = datetime.strptime(publish_date, '%m , %d , %Y')
+        return song_name_en, artist_name_en, publish_date
+
+    def get_title(self, soup):
+        # Title
+        title_section = soup.find('div', class_='tinle')
+        return f"{title_section.find('b').get_text()} {title_section.find('i').get_text()}"
+
+    def collect_link_singles(self):
+        for link in self.collect_post_links('archive/single/'):
+            yield link
+
+    def collect_single_musics(self):
         """
         Getting the detail of each Music. collecting all data of musics.
         :return:
         """
-        super().collect_musics()
-
-        for post_page_url, page_type in self.collect_links():  # page_type could be 'album' or 'single'
+        for post_page_url in self.collect_link_singles():
             soup = BeautifulSoup(self.make_request(post_page_url).text, "html.parser")
-
-            # Download link
-            link_320 = ''
-            link_128 = ''
-            music_dl_links = soup.find_all('a', class_='dlbter')
-            for link in music_dl_links:
-                if '320' in link.get_text():
-                    link_320 = link.attrs['href']
-                elif '128' in link.get_text():
-                    link_128 = link.attrs.get('href')
-
-            # Thumbnail
-            link_thumbnail = soup.find('div', class_='insidercover').find('a').attrs['href']
-            link_thumbnail = "/".join(
-                filter(None, map(lambda x: str(x).rstrip('/'), (self.base_url, link_thumbnail[1:]))))
-
-            # Name of Music and Artist
-            content_section = soup.find('div', class_='content')
-            song_name_en = content_section.find('h2').get_text()
-            artist_name_en = content_section.find('div', class_='thisinfo').find('a').get_text()
-
-            # Publish Date
-            publish_date = per_num_to_eng(self.fix_jdate(
-                content_section.find('div', class_='feater').find('b').get_text(),
-                jalali_months
-            ))
-            publish_date = datetime.strptime(publish_date, '%m , %d , %Y')
+            link_128, link_320 = self.get_download_link(soup)
+            link_thumbnail = self.get_thumbnail(soup)
+            song_name_en, artist_name_en, publish_date = self.get_content_section_info(soup)
+            title = self.get_title(soup)
 
             # Lyric
             lyric_text = soup.find('div', class_='tab-pane fade in active').find('p')
             if lyric_text:
                 lyric_text = lyric_text.get_text()
 
-            # Title
-            title_section = soup.find('div', class_='tinle')
-            title = f"{title_section.find('b').get_text()} {title_section.find('i').get_text()}"
-
-            c_music, created = CMusic.objects.get_or_create(
+            kwargs = dict(
                 post_name_url=post_page_url,
                 defaults=dict(
-                    artist_name_en=artist_name_en,
+                    artist=self.create_artist(artist_name_en),  # get or create Artist
                     song_name_en=song_name_en,
                     link_mp3_128=link_128,
                     link_mp3_320=link_320,
@@ -275,9 +302,48 @@ class Ganja2MusicCrawler(Crawler):
                     lyrics=lyric_text or '',
                     title=title,
                     published_date=publish_date,
-                    post_type=page_type
+                    post_type='single'
                 )
             )
+            self.create_music(**kwargs)  # get or create CMusic
+
+    def collect_link_albums(self):
+        for link in self.collect_post_links('archive/album/'):
+            yield link
+
+    def collect_album_musics(self):
+        for post_page_url in self.collect_link_albums():
+            print(post_page_url)
+            soup = BeautifulSoup(self.make_request(post_page_url).text, "html.parser")
+
+            link_128, link_320 = self.get_download_link(soup)  # zip files
+            link_thumbnail = self.get_thumbnail(soup)
+            album_name_en, artist_name_en, publish_date = self.get_content_section_info(soup)
+            title = self.get_title(soup)
+
+            data = dict(
+                artist=self.create_artist(name_en=artist_name_en),
+                link_mp3_128=link_128,
+                link_mp3_320=link_320,
+                link_thumbnail=link_thumbnail,
+                title=title,
+                published_date=publish_date,
+            )
+            album = self.create_album(album_name_en, **data)
+
+            # getting and creating all musics
+            album_musics = soup.find('div', class_='mCSB_5_container').find_all('div', class_='trklines')
+
+            for m in album_musics:
+                kwargs = dict(
+                    song_name_en=m.find('div', class_='rightf2').get_text(),
+                    defaults=dict(
+                        link_mp3_128=m.find('div', class_='rightf3 plyiter').find('a').attrs['href'],
+                        link_mp3_320=m.find('div', class_='rightf3').find('a').attrs['href'],
+                        album=album
+                    )
+                )
+                self.create_music(**kwargs)
 
     def collect_post_links(self, main_page_url):
         logger.info(f'>> Collect single music links {self.website_name}')
