@@ -4,6 +4,8 @@ import sys
 import logging
 from urllib.parse import unquote
 
+from pid import PidFile
+
 logger = logging.getLogger(__file__)
 
 

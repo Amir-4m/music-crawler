@@ -42,7 +42,7 @@ class CMusic(models.Model):
     title = models.CharField(_("title"), max_length=250, blank=True)
     lyrics = models.TextField(_("lyrics"), blank=True)
     song_name_fa = models.CharField(_("song name in fa"), max_length=200, blank=True)
-    song_name_en = models.CharField(_("song name in en"), max_length=200, unique=True)
+    song_name_en = models.CharField(_("song name in en"), max_length=200)
 
     artist_name_fa = models.CharField(_("artist name in fa"), max_length=200, blank=True)
     artist_name_en = models.CharField(_("artist name in en"), max_length=200, blank=True)

@@ -1,5 +1,6 @@
 import logging
 
+from celery import shared_task
 from celery.task import periodic_task
 from celery.schedules import crontab
 from django.utils import timezone
@@ -10,12 +11,15 @@ from .utils import check_running, close_running
 logger = logging.getLogger(__name__)
 
 
-@periodic_task(run_every=crontab(hour="*/6"))
+# @periodic_task(run_every=crontab(hour="*/6"))
+@shared_task
 def collect_musics_nic():
     NicMusicCrawler().collect_musics()
+    collect_files_nic.delay()
 
 
-@periodic_task(run_every=crontab(hour="*/10"))
+# @periodic_task(run_every=crontab(hour="*/10"))
+@shared_task
 def collect_files_nic():
     file_lock = check_running(collect_musics_nic.__name__)
     if not file_lock:
@@ -31,12 +35,14 @@ def collect_files_nic():
     return True
 
 
-@periodic_task(run_every=crontab(hour="*/6"))
+# @periodic_task(run_every=crontab(hour="*/6"))
+@shared_task
 def collect_musics_ganja():
     pass
 
 
-@periodic_task(run_every=crontab(hour="*/6"))
+# @periodic_task(run_every=crontab(hour="*/6"))
+@shared_task
 def collect_files_ganja():
     file_lock = check_running(collect_musics_nic.__name__)
     if not file_lock:
