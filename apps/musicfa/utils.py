@@ -16,7 +16,7 @@ class UploadTo:
 
     def __call__(self, instance, filename):
         path = self.path_creator(instance) or f'{filename}'
-        return path
+        return path.replace(' ', '')
 
     def path_creator(self, instance):
         """
@@ -58,5 +58,20 @@ def per_num_to_eng(number):
     outtab = '12345678901234567890'
     translation_table = str.maketrans(intab, outtab)
     return number.translate(translation_table)
+
+
+def check_running(function_name):
+    if not os.path.exists('./locks'):
+        os.mkdir('./locks')
+    file_lock = PidFile(str(function_name), piddir='./locks')
+    try:
+        file_lock.create()
+        return file_lock
+    except:
+        return None
+
+
+def close_running(file_lock):
+    file_lock.close()
 
 

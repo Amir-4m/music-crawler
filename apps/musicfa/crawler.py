@@ -1,5 +1,4 @@
 import logging
-import sys
 from urllib.parse import unquote
 
 from datetime import datetime
@@ -8,8 +7,9 @@ from django.core.files.temp import NamedTemporaryFile
 
 import requests
 from bs4 import BeautifulSoup
+from khayyam import JalaliDate
 
-from .models import CMusic, Artist, Album
+from .models import CMusic, Album
 from .utils import PrintException, per_num_to_eng
 
 months = ["ژانویه", "فوریه", "مارس", "آوریل", "می", "ژوئن", "جولای", "آگوست", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"]
@@ -25,23 +25,23 @@ class Crawler:
         logger.info(f'>> Starting... crawler for {self.website_name}')
 
     def collect_links(self):
+        """
+        Collecting the all links to get data from it.
+        :return: a single link to detail of post (one music).
+        """
         logger.info(f'{self.website_name} collect links starting...')
 
     def collect_musics(self):
+        """
+        Collecting the detail of music.
+        """
         logger.info(f'{self.website_name} collect musics starting...')
 
     def collect_files(self):
+        """
+        Downloading the data of crawled musics that is_downloaded field is False.
+        """
         logger.info(f'>> Collecting the files of CMusic {self.website_name}.')
-        for c in self.get_crawled_musics():
-            c.file_mp3_128 = self.download_content(c.link_mp3_128)
-            c.file_mp3_320 = self.download_content(c.link_mp3_320)
-            c.file_thumbnail = self.download_content(c.link_thumbnail)
-            c.is_downloaded = True
-            try:
-                c.save()
-            except Exception as e:
-                logger.error(f'>> collect files failed CMusic id: {c.id}')
-                PrintException()
 
     def make_request(self, url, method='get', **kwargs):
         try:
@@ -60,6 +60,7 @@ class Crawler:
         Getting the CMusic that file of them is not downloaded.
         :return: A queryset of CMusic.
         """
+        logger.info(f'>> Getting the crawled music to download the files...')
         for c in CMusic.objects.filter(
                 is_downloaded=False,
                 post_name_url__icontains=self.website_name
@@ -83,20 +84,22 @@ class Crawler:
         img_temp.flush()  # deleting the file from RAM
         return File(img_temp, name=unquote(url).split('/')[-1])
 
+    def download_all_files(self, c):
+        """
+        :param c: CMusic object to download file of it
+        :return: None
+        """
+        c.file_mp3_128 = self.download_content(c.link_mp3_128)
+        c.file_mp3_320 = self.download_content(c.link_mp3_320)
+        c.file_thumbnail = self.download_content(c.link_thumbnail)
+        if c.file_mp3_128 or c.file_mp3_320 or c.file_thumbnail:
+            c.is_downloaded = True
+
     def fix_jdate(self, date_str, correct_month):
         for i, t in enumerate(correct_month):
             if t in date_str:
                 month_text = date_str[date_str.find(t[0]):date_str.find(t[-2]) + 2]
-                return date_str.replace(month_text, f'{i}')
-
-    def create_artist(self, name_en, name_fa=''):
-        artist, created = Artist.objects.get_or_create(
-            name_en=name_en,
-            defaults=dict(name_fa=name_fa)
-        )
-        if created:
-            logger.info(f'>> New Artist Created id:{artist.id} name: {artist.name_en}')
-        return artist
+                return date_str.replace(month_text, f'{i + 1}')
 
     def create_music(self, **kwargs):
         c_music, created = CMusic.objects.get_or_create(
@@ -105,10 +108,10 @@ class Crawler:
         if created:
             logger.info(f'>> New Single Music Created id:{c_music} album id: {c_music.album_id}')
 
-    def create_album(self, album_name_en, **kwargs):
+    def create_album(self, site_id, defaults):
         album, created = Album.objects.get_or_create(
-            album_name_en=album_name_en,
-            defaults=kwargs
+            site_id=site_id,
+            defaults=defaults
         )
         if created:
             logger.info(f'>> New Album Created id: {album.id}')
@@ -118,6 +121,16 @@ class Crawler:
 class NicMusicCrawler(Crawler):
     website_name = 'nicmusic'
     base_url = 'https://nicmusic.net/'
+
+    def collect_files(self):
+        super().collect_files()
+        for c in self.get_crawled_musics():
+            self.download_all_files(c)
+            try:
+                c.save()
+            except Exception as e:
+                logger.error(f'>> collect files failed CMusic id: {c.id}')
+                PrintException()
 
     def collect_links(self):
         super().collect_links()
@@ -156,13 +169,6 @@ class NicMusicCrawler(Crawler):
                                 name_en += char
                     song_name_start_index = name_en.index("Called ")
                     artist_name_start_index = name_en.index("By ")
-                    post_type_start_index = name_en.index("Download ")
-                    artist_name_en = name_en[artist_name_start_index + 2:song_name_start_index].strip().encode().decode(
-                        'utf-8-sig')
-                    song_name_en = name_en[song_name_start_index + 6:].strip().encode().decode('utf-8-sig')
-                    post_type = name_en[post_type_start_index + 9:artist_name_start_index].strip().encode().decode(
-                        'utf-8-sig')
-
                     categories = soup.find("div", class_="categories").find("a").get_text()
                     if len(names) > 0:
                         if categories not in ["آهنگ های گوناگون", "تک آهنگ های جدید"] and categories.startswith(
@@ -198,7 +204,7 @@ class NicMusicCrawler(Crawler):
                     thumbnail = soup.find("img", class_=["size-full", "size-medium"]).attrs["data-src"].encode().decode(
                         'utf-8-sig')
                     publish_date = self.fix_jdate(soup.find("div", class_="times").get_text().strip(), months)
-                    publish_date = datetime.strptime(publish_date, '%m %d, %Y')
+                    publish_date = JalaliDate.strptime(publish_date, '%m %d, %Y').todate()
                     if len(artist_name_en) > 0:
                         kwargs = dict(
                             post_name_url=url,
@@ -206,9 +212,10 @@ class NicMusicCrawler(Crawler):
                                 "title": title,
                                 "song_name_fa": song_name_fa,
                                 "song_name_en": song_name_en,
-                                "post_type": post_type,
+                                "post_type": CMusic.SINGLE_TYPE,
                                 "lyrics": lyrics,
-                                "artist": self.create_artist(artist_name_en, artist_name_fa),
+                                "artist_name_fa": artist_name_fa,
+                                "artist_name_en": artist_name_en,
                                 "link_mp3_128": quality_128,
                                 "link_mp3_320": quality_320,
                                 "link_thumbnail": thumbnail,
@@ -229,12 +236,10 @@ class Ganja2MusicCrawler(Crawler):
     website_name = 'ganja2music'
     base_url = 'https://www.ganja2music.com/'
 
-    def collect_links(self):
-        """
-        Navigating on pages at single musics and collect the detail page of musics.
-        :return: Post link of each music to reach a single music
-        """
-        super().collect_links()
+    def collect_musics(self):
+        super().collect_musics()
+        self.collect_album_musics()
+        self.collect_single_musics()
 
     def get_download_link(self, soup):
         # Download link
@@ -262,13 +267,16 @@ class Ganja2MusicCrawler(Crawler):
             content_section.find('div', class_='feater').find('b').get_text(),
             jalali_months
         ))
-        publish_date = datetime.strptime(publish_date, '%m , %d , %Y')
+        publish_date = JalaliDate.strptime(publish_date, '%m , %d , %Y').todate()
         return song_name_en, artist_name_en, publish_date
 
     def get_title(self, soup):
         # Title
         title_section = soup.find('div', class_='tinle')
         return f"{title_section.find('b').get_text()} {title_section.find('i').get_text()}"
+
+    def get_obj_site_id(self, url):
+        return url.split('/')[3]
 
     def collect_link_singles(self):
         for link in self.collect_post_links('archive/single/'):
@@ -277,7 +285,7 @@ class Ganja2MusicCrawler(Crawler):
     def collect_single_musics(self):
         """
         Getting the detail of each Music. collecting all data of musics.
-        :return:
+        :return: None
         """
         for post_page_url in self.collect_link_singles():
             soup = BeautifulSoup(self.make_request(post_page_url).text, "html.parser")
@@ -292,9 +300,9 @@ class Ganja2MusicCrawler(Crawler):
                 lyric_text = lyric_text.get_text()
 
             kwargs = dict(
-                post_name_url=post_page_url,
+                site_id=self.get_obj_site_id(post_page_url),
                 defaults=dict(
-                    artist=self.create_artist(artist_name_en),  # get or create Artist
+                    artist_name_en=artist_name_en,  # get or create Artist
                     song_name_en=song_name_en,
                     link_mp3_128=link_128,
                     link_mp3_320=link_320,
@@ -302,7 +310,8 @@ class Ganja2MusicCrawler(Crawler):
                     lyrics=lyric_text or '',
                     title=title,
                     published_date=publish_date,
-                    post_type='single'
+                    post_type=CMusic.SINGLE_TYPE,
+                    post_name_url=post_page_url
                 )
             )
             self.create_music(**kwargs)  # get or create CMusic
@@ -320,46 +329,79 @@ class Ganja2MusicCrawler(Crawler):
             link_thumbnail = self.get_thumbnail(soup)
             album_name_en, artist_name_en, publish_date = self.get_content_section_info(soup)
             title = self.get_title(soup)
+            site_id = self.get_obj_site_id(post_page_url)
 
-            data = dict(
-                artist=self.create_artist(name_en=artist_name_en),
+            defaults = dict(
+                artist_name_en=artist_name_en,
                 link_mp3_128=link_128,
                 link_mp3_320=link_320,
                 link_thumbnail=link_thumbnail,
                 title=title,
+                album_name_en=album_name_en,
                 published_date=publish_date,
+                site_id=site_id
             )
-            album = self.create_album(album_name_en, **data)
+            album = self.create_album(site_id, defaults)
 
             # getting and creating all musics
-            album_musics = soup.find('div', class_='mCSB_5_container').find_all('div', class_='trklines')
+            album_musics = soup.find_all('div', class_='trklines')
 
             for m in album_musics:
+                link_mp3_320 = m.find('div', class_='rightf3').find('a').attrs['href']
                 kwargs = dict(
                     song_name_en=m.find('div', class_='rightf2').get_text(),
                     defaults=dict(
                         link_mp3_128=m.find('div', class_='rightf3 plyiter').find('a').attrs['href'],
-                        link_mp3_320=m.find('div', class_='rightf3').find('a').attrs['href'],
-                        album=album
+                        link_mp3_320=link_mp3_320,
+                        album=album,
+                        published_date=publish_date,
+                        post_name_url=link_mp3_320,
+                        post_type=CMusic.ALBUM_MUSIC_TYPE,
                     )
                 )
                 self.create_music(**kwargs)
 
+    def detect_new_post_in_page(self, main_page_url, soup):
+        music_ids_in_current_page = [link.attrs['href'].split('/')[3] for link in soup.find_all('a', class_='iaebox')]
+        if 'single' in main_page_url and CMusic.objects.filter(site_id__in=music_ids_in_current_page).count() < 30:
+            return True
+        elif 'album' in main_page_url and Album.objects.filter(site_id__in=music_ids_in_current_page).count() < 30:
+            return True
+        return False
+
     def collect_post_links(self, main_page_url):
         logger.info(f'>> Collect single music links {self.website_name}')
-
         # Getting the first page musics
         first_page = self.make_request(f"{self.base_url}{main_page_url}")
         soup = BeautifulSoup(first_page.text, "html.parser")
         next_page_link = soup.find('div', class_='pagenumbers').find('a', class_="next page-numbers").attrs['href']
-        for post_detail in soup.find_all('div', class_='postbox'):
-            yield post_detail.find('a', class_='iaebox').attrs['href']
+        if self.detect_new_post_in_page(main_page_url, soup):
+            for post_detail in soup.find_all('div', class_='postbox'):
+                yield post_detail.find('a', class_='iaebox').attrs['href']
 
         # Crawling the next pages
         while next_page_link:
             page = self.make_request(next_page_link)
             soup = BeautifulSoup(page.text, "html.parser")
-            for post_detail in soup.find_all('div', class_='postbox'):
-                yield post_detail.find('a', class_='iaebox').attrs['href']
+            if self.detect_new_post_in_page(main_page_url, soup):
+                for post_detail in soup.find_all('div', class_='postbox'):
+                    link = post_detail.find('a', class_='iaebox').attrs['href']
+                    yield link
             next_page_link = soup.find('div', class_='pagenumbers').find('a', class_="next page-numbers").attrs['href']
+            print('next_page_link', next_page_link)
             logger.info(f'>>> Next Page URL: {next_page_link}')
+
+    def collect_files(self):
+        super().collect_files()
+        for c in self.get_crawled_musics():
+            if c.album or CMusic.ALBUM_MUSIC_TYPE:  # downloading just the 320 file from album-music
+                c.file_mp3_320 = self.download_content(c.link_mp3_320)
+                if c.file_mp3_320:
+                    c.is_downloaded = True
+            else:
+                self.download_all_files(c)
+            try:
+                c.save()
+            except Exception as e:
+                logger.error(f'>> collect files failed CMusic id: {c.id}')
+                PrintException()
