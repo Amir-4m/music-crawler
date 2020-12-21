@@ -7,7 +7,7 @@ from django.shortcuts import render
 from django.urls import reverse_lazy
 
 from .models import CMusic
-
+from .tasks import collect_files_nic
 
 @login_required
 def export_musicfa_songs(request):
