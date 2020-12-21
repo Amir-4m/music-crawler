@@ -18,7 +18,9 @@ class UploadTo:
 
     def __call__(self, instance, filename):
         path = self.path_creator(instance) or f'{filename}'
-        return path.replace(' ', '')
+        path = path.replace(' ', '')
+        logger.info(f'>> New file saved in "{path}"')
+        return path
 
     def path_creator(self, instance):
         """
@@ -73,7 +75,15 @@ def check_running(function_name):
         return None
 
 
-def close_running(file_lock):
-    file_lock.close()
-
+def stop_duplicate_task(func):
+    def inner_function(*args, **kwargs):
+        file_lock = check_running(func.__name__)
+        if not file_lock:
+            logger.info(f">> [Another {func.__name__} is already running]")
+            return False
+        func(*args, **kwargs)
+        if file_lock:
+            file_lock.close()
+        return True
+    return inner_function
 

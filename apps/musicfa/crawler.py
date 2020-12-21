@@ -64,7 +64,7 @@ class Crawler:
         for c in CMusic.objects.filter(
                 is_downloaded=False,
                 post_name_url__icontains=self.website_name
-        ):
+        ).order_by('-id'):
             yield c
 
     def download_content(self, url):
