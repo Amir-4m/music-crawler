@@ -39,6 +39,9 @@ INSTALLED_APPS = [
 
     # apps
     'apps.musicfa',
+
+    # third parties
+    'django_better_admin_arrayfield',
 ]
 
 MIDDLEWARE = [

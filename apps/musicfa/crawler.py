@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 from khayyam import JalaliDate
 
-from .models import CMusic, Album
+from .models import CMusic, Album, Artist
 from .utils import PrintException, per_num_to_eng
 
 months = ["ژانویه", "فوریه", "مارس", "آوریل", "می", "ژوئن", "جولای", "آگوست", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"]
@@ -128,6 +128,20 @@ class Crawler:
             logger.info(f'>> New Album Created id: {album.id}')
         return album
 
+    def create_artist(self, name_en, name_fa):
+        try:
+            artist, created = Artist.objects.get_or_create(
+                correct_names__contained_by=[name_en, name_fa],
+                defaults=dict(name_fa=name_fa, name_en=name_en)
+            )
+        except Exception as e:
+            logger.error(">> Creating artist failed ")
+            PrintException()
+            return
+        if created:
+            logger.info(f'>> New artist Created id: {artist.id}')
+        return artist
+
 
 class NicMusicCrawler(Crawler):
     website_name = 'nicmusic'
@@ -228,8 +242,7 @@ class NicMusicCrawler(Crawler):
                             "song_name_en": song_name_en,
                             "post_type": CMusic.SINGLE_TYPE,
                             "lyrics": lyrics,
-                            "artist_name_fa": artist_name_fa,
-                            "artist_name_en": artist_name_en,
+                            "artist": self.create_artist(artist_name_en, artist_name_fa),
                             "link_mp3_128": quality_128,
                             "link_mp3_320": quality_320,
                             "link_thumbnail": thumbnail,
@@ -314,7 +327,7 @@ class Ganja2MusicCrawler(Crawler):
                 kwargs = dict(
                     site_id=self.get_obj_site_id(post_page_url),
                     defaults=dict(
-                        artist_name_en=artist_name_en,  # get or create Artist
+                        artist=self.create_artist(artist_name_en, ''),  # get or create Artist
                         song_name_en=song_name_en,
                         link_mp3_128=link_128,
                         link_mp3_320=link_320,
@@ -348,7 +361,7 @@ class Ganja2MusicCrawler(Crawler):
                 site_id = self.get_obj_site_id(post_page_url)
 
                 defaults = dict(
-                    artist_name_en=artist_name_en,
+                    artist=self.create_artist(artist_name_en, ''),
                     link_mp3_128=link_128,
                     link_mp3_320=link_320,
                     link_thumbnail=link_thumbnail,
@@ -370,6 +383,7 @@ class Ganja2MusicCrawler(Crawler):
                             link_mp3_128=m.find('div', class_='rightf3 plyiter').find('a').attrs['href'],
                             link_mp3_320=link_mp3_320,
                             album=album,
+                            artist=album.artist_id,
                             published_date=publish_date,
                             post_name_url=link_mp3_320,
                             post_type=CMusic.ALBUM_MUSIC_TYPE,

@@ -1,6 +1,8 @@
 from django.contrib import admin
 
-from .models import CMusic, Album
+from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
+
+from .models import CMusic, Album, Artist
 from .views import start_new_crawl
 
 
@@ -22,7 +24,12 @@ class CMusicAdmin(admin.ModelAdmin):
 
 @admin.register(Album)
 class AlbumAdmin(admin.ModelAdmin):
-    list_display = ("album_name_en", "artist_name_en", 'site_id')
+    list_display = ("album_name_en", 'site_id')
+
+
+@admin.register(Artist)
+class ArtistAdmin(admin.ModelAdmin, DynamicArrayMixin):
+    pass
 
 
 admin.site.empty_value_display = "Unknown"

@@ -38,7 +38,7 @@ def collect_files_nic():
 # @periodic_task(run_every=crontab(hour="*/6"))
 @shared_task
 def collect_musics_ganja():
-    pass
+    Ganja2MusicCrawler().collect_musics()
 
 
 # @periodic_task(run_every=crontab(hour="*/6"))
