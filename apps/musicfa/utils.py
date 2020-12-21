@@ -4,6 +4,8 @@ import sys
 import logging
 from urllib.parse import unquote
 
+from pid import PidFile
+
 logger = logging.getLogger(__file__)
 
 
@@ -15,20 +17,25 @@ class UploadTo:
         self.field_name = field_name
 
     def __call__(self, instance, filename):
-        return f'{self.field_name}{self.path_creator(instance)}'
+        path = self.path_creator(instance) or f'{filename}'
+        return path.replace(' ', '')
 
     def path_creator(self, instance):
         """
-        thumbnail example url: https://nicmusic.net/wp-content/uploads/2020/12/Saeed-Azar-Dore-Tekrari-500x500.jpg
-        music example url: http://dl.nicmusic.net/nicmusic/024/093/Saeed Azar - Dore Tekrari.mp3
+        thumbnail example url: https://nicmusic.net/wp-content/uploads/***.jpg
+        music example url: http://dl.nicmusic.net/nicmusic/024/093/***.mp3
         :param instance: CMusic object.
         :return: Created path from URL of site.
         """
         value = unquote(getattr(instance, f'link_{self.field_name}', ''))
         if value.find('/nicmusic/') != -1:
-            return f"/{value[value.index('/nicmusic/') + 10:]}"
+            return f"{value[value.index('/nicmusic/') + 10:]}"
         elif value.find('/wp-content/') != -1:
-            return f"/{value[value.index('/wp-content/'):]}"
+            return f"{value[value.index('/wp-content/'):]}"
+        elif value.find('/Ganja2Music/') != -1:
+            return f"{value[value.index('/Ganja2Music/') + 13:]}"
+        elif value.find('/Image/') != -1:
+            return f"{value[value.index('Image/'):]}"
 
     def generate_name(self, filename):
         base_filename, file_extension = os.path.splitext(filename)
@@ -46,3 +53,27 @@ def PrintException():
     linecache.checkcache(filename)
     line = linecache.getline(filename, lineno, f.f_globals)
     logger.error('>> EXCEPTION IN ({}, LINE {} "{}"):\n {}'.format(filename, lineno, line.strip(), exc_obj))
+
+
+def per_num_to_eng(number):
+    intab = '۱۲۳۴۵۶۷۸۹۰١٢٣٤٥٦٧٨٩٠'
+    outtab = '12345678901234567890'
+    translation_table = str.maketrans(intab, outtab)
+    return number.translate(translation_table)
+
+
+def check_running(function_name):
+    if not os.path.exists('./locks'):
+        os.mkdir('./locks')
+    file_lock = PidFile(str(function_name), piddir='./locks')
+    try:
+        file_lock.create()
+        return file_lock
+    except:
+        return None
+
+
+def close_running(file_lock):
+    file_lock.close()
+
+

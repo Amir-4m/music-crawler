@@ -9,34 +9,62 @@ import requests
 from bs4 import BeautifulSoup
 from khayyam import JalaliDate
 
-from .models import CMusic
-from .utils import PrintException
+from .models import CMusic, Album
+from .utils import PrintException, per_num_to_eng
 
-jalali_months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
 months = ["ژانویه", "فوریه", "مارس", "آوریل", "می", "ژوئن", "جولای", "آگوست", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"]
+jalali_months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
 alpha = "A aB bC cD dE eF fG gH hI iJ jK kL lM mN nO oP pQ qR rS sT tU uV vW wX xY yZ z"
-
 logger = logging.getLogger(__name__)
 
 
 class Crawler:
     website_name = ''
 
+    def __init__(self):
+        logger.info(f'>> Starting... crawler for {self.website_name}')
+
     def collect_links(self):
-        raise NotImplementedError()
+        """
+        Collecting the all links to get data from it.
+        :return: a single link to detail of post (one music).
+        """
+        logger.info(f'>> {self.website_name} collect links starting...')
 
     def collect_musics(self):
-        raise NotImplementedError()
+        """
+        Collecting the detail of music.
+        """
+        logger.info(f'>> {self.website_name} collect musics starting...')
 
     def collect_files(self):
-        pass
+        """
+        Downloading the data of crawled musics that is_downloaded field is False.
+        """
+        logger.info(f'>> Collecting the files of CMusic {self.website_name}.')
+
+    def make_request(self, url, method='get', **kwargs):
+        try:
+            req = requests.request(method, url, **kwargs, )
+            req.raise_for_status()
+            if req.ok:
+                return req
+            else:
+                logger.error(f'>> Make request failed! URL: {url} status: {req.status_code}')
+        except requests.HTTPError:
+            logger.error(f">> Make request failed! HTTP ERROR! URL: {url}")
+            raise
 
     def get_crawled_musics(self):
         """
         Getting the CMusic that file of them is not downloaded.
         :return: A queryset of CMusic.
         """
-        for c in CMusic.objects.filter(is_downloaded=False):
+        logger.info(f'>> Getting the crawled music to download the files...')
+        for c in CMusic.objects.filter(
+                is_downloaded=False,
+                post_name_url__icontains=self.website_name
+        ):
             yield c
 
     def download_content(self, url):
@@ -49,187 +77,361 @@ class Crawler:
             r = requests.get(url, allow_redirects=False)
         except Exception as e:
             logger.error(f'>> Downloading file failed. {e}')
+            PrintException()
             return None
         img_temp = NamedTemporaryFile(delete=True)
         img_temp.write(r.content)
         img_temp.flush()  # deleting the file from RAM
         return File(img_temp, name=unquote(url).split('/')[-1])
 
+    def download_all_files(self, c):
+        """
+        :param c: CMusic object to download file of it
+        :return: None
+        """
+        c.file_mp3_128 = self.download_content(c.link_mp3_128)
+        c.file_mp3_320 = self.download_content(c.link_mp3_320)
+        c.file_thumbnail = self.download_content(c.link_thumbnail)
+        if c.file_mp3_128 or c.file_mp3_320 or c.file_thumbnail:
+            c.is_downloaded = True
 
-class MusicfaCrawler(Crawler):
-    website_name = 'music-fa'
+    def fix_jdate(self, date_str, correct_month):
+        for i, t in enumerate(correct_month):
+            if t in date_str:
+                month_text = date_str[date_str.find(t[0]):date_str.find(t[-2]) + 2]
+                return date_str.replace(month_text, f'{i + 1}')
 
-    def __init__(self):
-        logger.info(f'Starting crawler for {self.website_name}')
-
-    def collect_links(self):
-        logger.info(f'{self.website_name} collect links starting...')
-        main_page = requests.get("https://nicmusic.net/")
-        main_soup = BeautifulSoup(main_page.text, "html.parser")
-        nav_links = main_soup.find("div", class_="nav-links").find_all("a")
-        total_pages = int(nav_links[-2].get_text())
-        for i in range(1, total_pages + 1):
-            page = requests.get(f"https://nicmusic.net/page/{i}/")
-            soup = BeautifulSoup(page.text, "html.parser")
-            post_urls_a = soup.find_all("a", class_="show-more")
-            for post in post_urls_a:
-                yield post.attrs["href"]
-
-    def collect_musics(self):
+    def create_music(self, **kwargs):
         try:
-            for url in self.collect_links():
-                page = requests.get(url)
-                soup = BeautifulSoup(page.text, "html.parser")
-                try:
-                    song_name_fa = ""
-                    song_name_en = ""
-                    artist_name_fa = ""
-                    artist_name_en = ""
-
-                    title = soup.find("h1", class_="title").find("a").getText().strip()
-                    title = title.encode().decode('utf-8-sig')
-                    names = soup.find("div", class_="post-content").find_all("strong")
-                    names_en = soup.find("div", class_="post-content").find_all("p")
-                    name_en = ""
-                    for name in names_en:
-                        name = name.get_text().encode().decode('utf-8-sig')
-                        for char in name:
-                            if char in alpha:
-                                name_en += char
-                    song_name_start_index = name_en.index("Called ")
-                    artist_name_start_index = name_en.index("By ")
-                    post_type_start_index = name_en.index("Download ")
-                    artist_name_en = name_en[artist_name_start_index + 2:song_name_start_index].strip().encode().decode(
-                        'utf-8-sig')
-                    song_name_en = name_en[song_name_start_index + 6:].strip().encode().decode('utf-8-sig')
-                    post_type = name_en[post_type_start_index + 9:artist_name_start_index].strip().encode().decode(
-                        'utf-8-sig')
-
-                    categories = soup.find("div", class_="categories").find("a").get_text()
-                    if len(names) > 0:
-                        if categories not in ["آهنگ های گوناگون", "تک آهنگ های جدید"] and categories.startswith(
-                                "آهنگ های "):
-                            artist_name_fa = categories[9:]
-                        elif categories not in ["آهنگ های گوناگون", "تک آهنگ های جدید"] and categories.startswith(
-                                "دانلود آهنگ "):
-                            artist_name_fa = categories[12:].encode().decode('utf-8-sig')
-                        else:
-                            artist_name_fa = names[0].get_text().encode().decode('utf-8-sig')
-
-                    # if len(names) > 1:
-                    #     if names[1].get_text() not in artist_name_fa:
-                    #         song_name_fa = names[1].get_text()
-                    #
-                    # if len(song_name_fa) == 0 or song_name_fa[0] in alpha:
-                    #     song_name_fa = None
-
-                    song_name_fa_start_index = title.index("به نام")
-                    song_name_fa = title[song_name_fa_start_index + 6:].strip().encode().decode('utf-8-sig')
-
-                    if len(artist_name_fa) == 0 or artist_name_fa[0] in alpha:
-                        # artist_name_fa = None
-                        names2 = names[2].get_text()
-                        if names2[0] not in alpha:
-                            artist_name_fa = names[2].get_text()
-
-                    # if artist_name_fa is None:
-                    #     names2 = names[2].get_text()
-                    #     if names2[0] not in alpha:
-                    #         artist_name_fa = names[2].get_text()
-
-                    lyrics_all = soup.find("div", class_="post-content").find_all("p")[7:]
-
-                    lyrics = ""
-                    if lyrics_all:
-                        for ly in lyrics_all:
-                            lyrics += f"{ly.get_text().strip()}\n"
-
-                    lyrics = lyrics.replace("\"", "")
-                    lyrics = lyrics.strip().encode().decode('utf-8-sig')
-                    if "دانلود در ادامه مطلب" in lyrics:
-                        start_index = lyrics.index("دانلود در ادامه مطلب")
-                        lyrics = lyrics[start_index + 21:]
-                        lyrics = lyrics.strip()
-
-                    quality_128 = soup.find("a", class_="dl-128").attrs["href"].encode().decode('utf-8-sig')
-
-                    quality_320 = soup.find("a", class_="dl-320").attrs["href"].encode().decode('utf-8-sig')
-
-                    thumbnail = soup.find("img", class_=["size-full", "size-medium"]).attrs["data-src"].encode().decode(
-                        'utf-8-sig')
-
-                    publish_date = soup.find("div", class_="times").get_text().strip().replace(",", "").split(" ")
-                    greek_published_date = str(
-                        datetime(int(publish_date[2]), months.index(publish_date[0]) + 1, int(publish_date[1])).date())
-                    # published_date_jalali_date = JalaliDate(datetime(int(publish_date[2]),
-                    #                                                  months.index(publish_date[0]) + 1,
-                    #                                                  int(publish_date[1])))
-                    #
-                    # published_date_jalali_str = str(published_date_jalali_date).split("-")
-                    # publish_date_jalali = f"{int(published_date_jalali_str[2])}/{int(published_date_j
-                    # alali_str[1])}/{int(published_date_jalali_str[0])}"
-                    if len(artist_name_en) > 0:
-                        music, created = CMusic.objects.get_or_create(
-                            post_name_url=url,
-                            defaults={
-                                "title": title,
-                                "song_name_fa": song_name_fa,
-                                "song_name_en": song_name_en,
-                                "post_type": post_type,
-                                "lyrics": lyrics,
-                                "artist_name_fa": artist_name_fa,
-                                "artist_name_en": artist_name_en,
-                                "link_mp3_128": quality_128,
-                                "link_mp3_320": quality_320,
-                                "link_thumbnail": thumbnail,
-                                "published_date": greek_published_date
-                            }
-                        )
-                        logger.info(f">> {self.website_name} Song Created... post_url: {url}")
-                except Exception as e:
-                    logger.error(f'>> 1 collect music {self.website_name}')
-                    PrintException()
-                    continue
+            c_music, created = CMusic.objects.get_or_create(
+                **kwargs
+            )
+            if created:
+                logger.info(f'>> New Single Music Created id:{c_music.id} album id: {c_music.album_id}')
+            else:
+                logger.info(f'>> Duplicate Single Music found id:{c_music.id} album id: {c_music.album_id}')
         except Exception as e:
-            logger.error(f'>> collect music {self.website_name}')
+            logger.error(">> Creating music failed ")
             PrintException()
 
+    def create_album(self, site_id, defaults):
+        try:
+            album, created = Album.objects.get_or_create(
+                site_id=site_id,
+                defaults=defaults
+            )
+        except Exception as e:
+            logger.error(">> Creating album failed ")
+            PrintException()
+            return
+        if created:
+            logger.info(f'>> New Album Created id: {album.id}')
+        return album
+
+
+class NicMusicCrawler(Crawler):
+    website_name = 'nicmusic'
+    base_url = 'https://nicmusic.net/'
+
     def collect_files(self):
-        logger.info(f'>> Collecting the files of CMusic.')
+        super().collect_files()
         for c in self.get_crawled_musics():
-            c.file_mp3_128 = self.download_content(c.link_mp3_128)
-            c.file_mp3_320 = self.download_content(c.link_mp3_320)
-            c.file_thumbnail = self.download_content(c.link_thumbnail)
-            c.is_downloaded = True
+            self.download_all_files(c)
             try:
                 c.save()
             except Exception as e:
                 logger.error(f'>> collect files failed CMusic id: {c.id}')
                 PrintException()
 
-    def collect_musicfa_singers_pages(self):
-        url = "https://music-fa.com"
-        page = requests.get(url)
-        soup = BeautifulSoup(page.text, "html.parser")
+    def collect_links(self):
+        super().collect_links()
+        try:
+            main_page = self.make_request(self.base_url)
+            main_soup = BeautifulSoup(main_page.text, "html.parser")
+            nav_links = main_soup.find("div", class_="nav-links").find_all("a")
+            total_pages = int(nav_links[-2].get_text())
+            for i in range(1, total_pages + 1):
+                page = requests.get(f"{self.base_url}page/{i}/")
+                soup = BeautifulSoup(page.text, "html.parser")
+                for post in soup.find_all("a", class_="show-more"):
+                    yield post.attrs["href"]
+        except Exception as e:
+            logger.error(f">> Collecting links failed {self.website_name}")
+            PrintException()
 
-        singer_list = soup.find_all("div", class_="box_body")[4].find_all("li")
+    def collect_musics(self):
+        super().collect_musics()
+        for url in self.collect_links():
+            page = self.make_request(url)
+            soup = BeautifulSoup(page.text, "html.parser")
+            try:
+                artist_name_fa = ""
+                title = soup.find("h1", class_="title").find("a").getText().strip()
+                title = title.encode().decode('utf-8-sig')
+                names = soup.find("div", class_="post-content").find_all("strong")
+                names_en = soup.find("div", class_="post-content").find_all("p")
+                name_en = ""
+                for name in names_en:
+                    name = name.get_text().encode().decode('utf-8-sig')
+                    for char in name:
+                        if char in alpha:
+                            name_en += char
+                song_name_start_index = name_en.index("Called ")
+                artist_name_start_index = name_en.index("By ")
+                artist_name_en = name_en[
+                                 artist_name_start_index + 2:song_name_start_index].strip().encode().decode(
+                    'utf-8-sig')
+                song_name_en = name_en[song_name_start_index + 6:].strip().encode().decode('utf-8-sig')
+                categories = soup.find("div", class_="categories").find("a").get_text()
+                if len(names) > 0:
+                    if categories not in ["آهنگ های گوناگون", "تک آهنگ های جدید"] and categories.startswith(
+                            "آهنگ های "):
+                        artist_name_fa = categories[9:]
+                    elif categories not in ["آهنگ های گوناگون", "تک آهنگ های جدید"] and categories.startswith(
+                            "دانلود آهنگ "):
+                        artist_name_fa = categories[12:].encode().decode('utf-8-sig')
+                    else:
+                        artist_name_fa = names[0].get_text().encode().decode('utf-8-sig')
 
-        singers_page_url = []
-        for li in singer_list:
-            singers_page_url.append(li.find("a").attrs["href"])
+                song_name_fa_start_index = title.index("به نام")
+                song_name_fa = title[song_name_fa_start_index + 6:].strip().encode().decode('utf-8-sig')
 
-        return singers_page_url
+                if len(artist_name_fa) == 0 or artist_name_fa[0] in alpha:
+                    names2 = names[2].get_text()
+                    if names2[0] not in alpha:
+                        artist_name_fa = names[2].get_text()
+                lyrics_all = soup.find("div", class_="post-content").find_all("p")[7:]
+                lyrics = ""
+                if lyrics_all:
+                    for ly in lyrics_all:
+                        lyrics += f"{ly.get_text().strip()}\n"
 
-    def last_page(self):
-        url = "https://music-fa.com/"
-        page = requests.get(url)
-        soup = BeautifulSoup(page.text, "html.parser")
-        last_page_url = soup.find("div", class_="pagination cf").find_all("a")[-1].attrs["href"]
-        last_page_number = int(last_page_url.split("/")[-2])
-        return last_page_number + 1
+                lyrics = lyrics.replace("\"", "")
+                lyrics = lyrics.strip().encode().decode('utf-8-sig')
+                if "دانلود در ادامه مطلب" in lyrics:
+                    start_index = lyrics.index("دانلود در ادامه مطلب")
+                    lyrics = lyrics[start_index + 21:]
+                    lyrics = lyrics.strip()
+                quality_128 = soup.find("a", class_="dl-128").attrs["href"].encode().decode('utf-8-sig')
+                quality_320 = soup.find("a", class_="dl-320").attrs["href"].encode().decode('utf-8-sig')
+                thumbnail = soup.find("img", class_=["size-full", "size-medium"]).attrs[
+                    "data-src"].encode().decode(
+                    'utf-8-sig')
+                publish_date = self.fix_jdate(soup.find("div", class_="times").get_text().strip(), months)
+                publish_date = datetime.strptime(publish_date, '%m %d, %Y')
+                if len(artist_name_en) > 0:
+                    kwargs = dict(
+                        post_name_url=url,
+                        defaults={
+                            "title": title,
+                            "song_name_fa": song_name_fa,
+                            "song_name_en": song_name_en,
+                            "post_type": CMusic.SINGLE_TYPE,
+                            "lyrics": lyrics,
+                            "artist_name_fa": artist_name_fa,
+                            "artist_name_en": artist_name_en,
+                            "link_mp3_128": quality_128,
+                            "link_mp3_320": quality_320,
+                            "link_thumbnail": thumbnail,
+                            "published_date": publish_date
+                        }
+                    )
+                    self.create_music(**kwargs)
+            except Exception as e:
+                logger.error(f'>> 1 collect music {self.website_name}')
+                PrintException()
+                continue
 
-    def collect_full_album_urls(self):
-        url = "https://iran-music.net/download-full-album-in-one/"
-        page = requests.get(url)
-        soup = BeautifulSoup(page.text, "html.parser")
-        full_album_list = soup.find("div", class_="iranthemes_center").find("ul").find_all("li")
+
+class Ganja2MusicCrawler(Crawler):
+    website_name = 'ganja2music'
+    base_url = 'https://www.ganja2music.com/'
+
+    def collect_musics(self):
+        super().collect_musics()
+        self.collect_album_musics()
+        self.collect_single_musics()
+
+    def get_download_link(self, soup):
+        # Download link
+        link_320 = ''
+        link_128 = ''
+        music_dl_links = soup.find_all('a', class_='dlbter')
+        for link in music_dl_links:
+            if '320' in link.get_text():
+                link_320 = link.attrs['href']
+            elif '128' in link.get_text():
+                link_128 = link.attrs.get('href')
+        return link_128, link_320
+
+    def get_thumbnail(self, soup):
+        # Thumbnail
+        link_thumbnail = soup.find('div', class_='insidercover').find('a').attrs['href']
+        return "/".join(filter(None, map(lambda x: str(x).rstrip('/'), (self.base_url, link_thumbnail[1:]))))
+
+    def get_content_section_info(self, soup):
+        # Name of Music, Artist and Publish Date
+        content_section = soup.find('div', class_='content')
+        song_name_en = content_section.find('h2').get_text()
+        artist_name_en = content_section.find('div', class_='thisinfo').find('a').get_text()
+        publish_date = per_num_to_eng(self.fix_jdate(
+            content_section.find('div', class_='feater').find('b').get_text(),
+            jalali_months
+        ))
+        publish_date = JalaliDate.strptime(publish_date, '%m , %d , %Y').todate()
+        return song_name_en, artist_name_en, publish_date
+
+    def get_title(self, soup):
+        # Title
+        title_section = soup.find('div', class_='tinle')
+        return f"{title_section.find('b').get_text()} {title_section.find('i').get_text()}"
+
+    def get_obj_site_id(self, url):
+        return url.split('/')[3]
+
+    def collect_link_singles(self):
+        for link in self.collect_post_links('archive/single/'):
+            yield link
+
+    def collect_single_musics(self):
+        """
+        Getting the detail of each Music. collecting all data of musics.
+        :return: None
+        """
+        for post_page_url in self.collect_link_singles():
+            try:
+                soup = BeautifulSoup(self.make_request(post_page_url).text, "html.parser")
+                link_128, link_320 = self.get_download_link(soup)
+                link_thumbnail = self.get_thumbnail(soup)
+                song_name_en, artist_name_en, publish_date = self.get_content_section_info(soup)
+                title = self.get_title(soup)
+
+                # Lyric
+                lyric_text = soup.find('div', class_='tab-pane fade in active').find('p')
+                if lyric_text:
+                    lyric_text = lyric_text.get_text()
+
+                kwargs = dict(
+                    site_id=self.get_obj_site_id(post_page_url),
+                    defaults=dict(
+                        artist_name_en=artist_name_en,  # get or create Artist
+                        song_name_en=song_name_en,
+                        link_mp3_128=link_128,
+                        link_mp3_320=link_320,
+                        link_thumbnail=link_thumbnail,
+                        lyrics=lyric_text or '',
+                        title=title,
+                        published_date=publish_date,
+                        post_type=CMusic.SINGLE_TYPE,
+                        post_name_url=post_page_url
+                    )
+                )
+                self.create_music(**kwargs)  # get or create CMusic
+            except Exception as e:
+                logger.error(f'>> Collect Single Music failed')
+                PrintException()
+                continue
+
+    def collect_link_albums(self):
+        for link in self.collect_post_links('archive/album/'):
+            yield link
+
+    def collect_album_musics(self):
+        for post_page_url in self.collect_link_albums():
+            try:
+                soup = BeautifulSoup(self.make_request(post_page_url).text, "html.parser")
+
+                link_128, link_320 = self.get_download_link(soup)  # zip files
+                link_thumbnail = self.get_thumbnail(soup)
+                album_name_en, artist_name_en, publish_date = self.get_content_section_info(soup)
+                title = self.get_title(soup)
+                site_id = self.get_obj_site_id(post_page_url)
+
+                defaults = dict(
+                    artist_name_en=artist_name_en,
+                    link_mp3_128=link_128,
+                    link_mp3_320=link_320,
+                    link_thumbnail=link_thumbnail,
+                    title=title,
+                    album_name_en=album_name_en,
+                    published_date=publish_date,
+                    site_id=site_id
+                )
+                album = self.create_album(site_id, defaults)
+
+                # getting and creating all musics
+                album_musics = soup.find_all('div', class_='trklines')
+
+                for m in album_musics:
+                    link_mp3_320 = m.find('div', class_='rightf3').find('a').attrs['href']
+                    kwargs = dict(
+                        song_name_en=m.find('div', class_='rightf2').get_text(),
+                        defaults=dict(
+                            link_mp3_128=m.find('div', class_='rightf3 plyiter').find('a').attrs['href'],
+                            link_mp3_320=link_mp3_320,
+                            album=album,
+                            published_date=publish_date,
+                            post_name_url=link_mp3_320,
+                            post_type=CMusic.ALBUM_MUSIC_TYPE,
+                        )
+                    )
+                    self.create_music(**kwargs)
+            except Exception as e:
+                logger.error(f">> Creating album failed URL {post_page_url}")
+                PrintException()
+                continue
+
+    def detect_new_post_in_page(self, main_page_url, soup):
+        music_ids_in_current_page = [link.attrs['href'].split('/')[3] for link in soup.find_all('a', class_='iaebox')]
+        if 'single' in main_page_url and CMusic.objects.filter(site_id__in=music_ids_in_current_page).count() < 30:
+            return True
+        elif 'album' in main_page_url and Album.objects.filter(site_id__in=music_ids_in_current_page).count() < 30:
+            return True
+        return False
+
+    def collect_post_links(self, main_page_url):
+        logger.info(f'>> Collect single music links {self.website_name}')
+        try:
+            # Getting the first page musics
+            first_page = self.make_request(f"{self.base_url}{main_page_url}")
+            soup = BeautifulSoup(first_page.text, "html.parser")
+            next_page_link = soup.find('div', class_='pagenumbers').find('a', class_="next page-numbers").attrs['href']
+            if self.detect_new_post_in_page(main_page_url, soup):
+                for post_detail in soup.find_all('div', class_='postbox'):
+                    yield post_detail.find('a', class_='iaebox').attrs['href']
+        except Exception as e:
+            logger.error(f'>> Getting first page failed')
+            PrintException()
+            return
+        # Crawling the next pages
+        while next_page_link:
+            try:
+                page = self.make_request(next_page_link)
+                soup = BeautifulSoup(page.text, "html.parser")
+                if self.detect_new_post_in_page(main_page_url, soup):
+                    for post_detail in soup.find_all('div', class_='postbox'):
+                        link = post_detail.find('a', class_='iaebox').attrs['href']
+                        yield link
+                else:
+                    logger.info(f'>> Skipping this page URL: {next_page_link}')
+                next_page_link = soup.find('div', class_='pagenumbers').find('a', class_="next page-numbers").attrs['href']
+                logger.info(f'>>> Next Page URL: {next_page_link}')
+            except Exception as e:
+                logger.error(f'>> Navigating pages failed current page {next_page_link}')
+                PrintException()
+                continue
+
+    def collect_files(self):
+        super().collect_files()
+        for c in self.get_crawled_musics():
+            if c.album or CMusic.ALBUM_MUSIC_TYPE:  # downloading just the 320 file from album-music
+                c.file_mp3_320 = self.download_content(c.link_mp3_320)
+                if c.file_mp3_320:
+                    c.is_downloaded = True
+            else:
+                self.download_all_files(c)
+            try:
+                c.save()
+            except Exception as e:
+                logger.error(f'>> collect files failed CMusic id: {c.id}')
+                PrintException()
