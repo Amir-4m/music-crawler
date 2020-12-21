@@ -48,13 +48,17 @@ class UploadTo:
 
 
 def PrintException():
+    """
+    Print the exception cause and errors
+    :return:
+    """
     exc_type, exc_obj, tb = sys.exc_info()
     f = tb.tb_frame
     lineno = tb.tb_lineno
     filename = f.f_code.co_filename
     linecache.checkcache(filename)
     line = linecache.getline(filename, lineno, f.f_globals)
-    logger.debug('>> EXCEPTION IN ({}, LINE {} "{}"):\n {}'.format(filename, lineno, line.strip(), exc_obj))
+    logger.error('>> EXCEPTION IN ({}, LINE {} "{}"):\n {}'.format(filename, lineno, line.strip(), exc_obj))
 
 
 def per_num_to_eng(number):
@@ -62,6 +66,13 @@ def per_num_to_eng(number):
     outtab = '12345678901234567890'
     translation_table = str.maketrans(intab, outtab)
     return number.translate(translation_table)
+
+
+def checking_task_status(func_name):
+    if os.path.exists('./locks'):
+        items = os.listdir('./locks')
+        return True if f'{func_name}.pid' in items else False
+    return False
 
 
 def check_running(function_name):
@@ -76,12 +87,12 @@ def check_running(function_name):
 
 
 def stop_duplicate_task(func):
-    def inner_function(*args, **kwargs):
+    def inner_function():
         file_lock = check_running(func.__name__)
         if not file_lock:
             logger.info(f">> [Another {func.__name__} is already running]")
             return False
-        func(*args, **kwargs)
+        func()
         if file_lock:
             file_lock.close()
         return True

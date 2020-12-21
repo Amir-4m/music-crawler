@@ -61,9 +61,9 @@ class CMusic(models.Model):
     album = models.ForeignKey('Album', on_delete=models.CASCADE, verbose_name=_('album'), null=True, blank=True)
     artist = models.ForeignKey('Artist', on_delete=models.CASCADE, verbose_name=_('artist'))
 
-    post_name_url = models.CharField(_("post name url"), max_length=300, unique=True)
+    post_url = models.TextField(_("post url"), blank=True   )
     post_type = models.CharField(_("post type"), max_length=20, choices=POST_TYPE_CHOICE)
-    site_id = models.CharField(_('album site id'), max_length=50, unique=True, null=True)
+    site_id = models.CharField(_('album site id'), max_length=50, unique=True)
 
     link_mp3_128 = models.TextField(_("quality of 128 mp3 link"), blank=True)
     link_mp3_320 = models.TextField(_("quality of 320 mp3 link"), blank=True)
