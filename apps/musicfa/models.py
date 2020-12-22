@@ -108,3 +108,6 @@ class CMusic(models.Model):
 
     def __str__(self):
         return f"{self.title} {self.id}"
+
+    def get_artist_info(self):
+        return f"{self.artist.name_fa}\n{self.artist.name_en}"

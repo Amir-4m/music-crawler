@@ -1,10 +1,15 @@
+import json
 import os
 import linecache
 import sys
 import logging
 from urllib.parse import unquote
 
+import requests
+from django.conf import settings
 from pid import PidFile
+from requests.auth import HTTPBasicAuth
+
 
 logger = logging.getLogger(__file__)
 
@@ -33,7 +38,7 @@ class UploadTo:
         if value.find('/nicmusic/') != -1:
             return f"{value[value.index('/nicmusic/') + 10:]}"
         elif value.find('/wp-content/') != -1:
-            return f"{value[value.index('/wp-content/'):]}"
+            return f"{value[value.index('wp-content/'):]}"
         elif value.find('/Ganja2Music/') != -1:
             return f"{value[value.index('/Ganja2Music/') + 13:]}"
         elif value.find('/Image/') != -1:
@@ -97,4 +102,85 @@ def stop_duplicate_task(func):
             file_lock.close()
         return True
     return inner_function
+
+
+class WordPressClient:
+    base_url = 'https://test.delnava.com/wp-json/wp/v2/'
+    urls = {
+        'single_music': f'music/',
+        'media': f'media/',
+    }
+
+    def __init__(self, instance):
+        """
+        Args:
+            instance: Instance is CMusic object.
+        """
+        self.instance = instance
+
+    def post_request(self, url, method='post', headers=None, **kwargs):
+        if headers:
+            kwargs.update({'headers': headers})
+        return requests.request(
+            method,
+            f"{self.base_url + url}",
+            auth=HTTPBasicAuth(settings.WP_USER, settings.WP_PASS),
+            **kwargs
+        )
+
+    def create_single_music(self):
+        from .models import CMusic
+        """
+        Create a new Music to Wordpress from CMusic and Album object.
+        Returns: None
+        """
+        media_id = self.create_media()  # Create media for this music
+        payload_data = dict(
+            title=self.instance.title,
+            content=f"{self.instance.get_artist_info()}\n{self.instance.lyrics}",
+            slug=self.instance.song_name_en,
+            status='publish',  # publish, private, draft, pending, future, auto-draft
+            excerpt=self.instance.song_name_en,
+            author=9,
+            format='standard',
+            categories=[self.instance.wp_category_id],
+            featured_media=media_id,
+            meta=dict(
+                artist_name_persian=self.instance.artist.name_fa,
+                artist_name_english=self.instance.artist.name_en,
+                music_name_persian=self.instance.song_name_fa,
+                music_name_english=self.instance.song_name_en,
+                link_128='link_128',
+                link_320='link_320'
+            )
+        )
+        req = self.post_request(
+            self.urls['single_music'],
+            json=payload_data,
+            headers={'Content-Type': 'application/json'}
+        )
+        print(req.status_code, req.content)
+        if req.ok:
+            self.instance.status = CMusic.APPROVED_STATUS
+
+    def create_media(self):
+        """
+        Create a new Media object in Wordpress site to assign it to Wordpress Post.
+
+        Returns: media's id of uploaded image to wordpress site
+        """
+        file_name = self.instance.file_thumbnail.name.split('/')[-1]
+        payload_data = dict(status='draft')
+        req = self.post_request(
+            self.urls['media'],
+            data={'file': file_name, 'data': json.dumps(payload_data)},
+            files={'file': (
+                file_name,
+                open(self.instance.file_thumbnail.path, 'rb'),
+                f'image/{file_name.split(".")[-1]}',
+                {'Expires': '0'}
+            )},
+        )
+        if req.ok:
+            return req.json()['id']
 

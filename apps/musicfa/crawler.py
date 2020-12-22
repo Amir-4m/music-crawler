@@ -65,7 +65,7 @@ class Crawler:
         logger.info(f'>> Getting the crawled music to download the files...')
         for c in CMusic.objects.filter(
                 is_downloaded=False,
-                post_url__icontains=self.website_name
+                page_url__icontains=self.website_name
         ).order_by('-id'):
             yield c
 

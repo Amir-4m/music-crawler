@@ -142,3 +142,7 @@ CKEDITOR_CONFIGS = {
         'width': 850,
     },
 }
+
+# Wordpress Auth
+WP_USER = config('WP_USER')
+WP_PASS = config('WP_PASS')

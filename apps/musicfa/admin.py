@@ -13,6 +13,7 @@ class CMusicAdmin(admin.ModelAdmin):
     form = CMusicForm
     change_list_template = 'change_list.html'
     list_display = ("song_name_en", 'artist', "title", "post_type", 'is_downloaded')
+    list_filter = ['is_downloaded']
     readonly_fields = ['album']
     ordering = ['-id']
 
