@@ -5,10 +5,12 @@ from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
 from .models import CMusic, Album, Artist
 from .views import start_new_crawl
 from .utils import checking_task_status
+from .forms import CMusicForm
 
 
 @admin.register(CMusic)
 class CMusicAdmin(admin.ModelAdmin):
+    form = CMusicForm
     change_list_template = 'change_list.html'
     list_display = ("song_name_en", 'artist', "title", "post_type", 'is_downloaded')
     readonly_fields = ['album']

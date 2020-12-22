@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class Crawler:
+    category_id = 0
     website_name = ''
 
     def __init__(self):
@@ -150,6 +151,7 @@ class Crawler:
 
 
 class NicMusicCrawler(Crawler):
+    category_id = 0
     website_name = 'nicmusic'
     base_url = 'https://nicmusic.net/'
 
@@ -255,7 +257,8 @@ class NicMusicCrawler(Crawler):
                             "link_mp3_320": quality_320,
                             "link_thumbnail": thumbnail,
                             "published_date": publish_date,
-                            'post_url': url,
+                            'page_url': url,
+                            'wp_category_id': self.category_id
                         }
                     )
                     self.create_music(**kwargs)
@@ -270,6 +273,7 @@ class NicMusicCrawler(Crawler):
 
 
 class Ganja2MusicCrawler(Crawler):
+    category_id = 0
     website_name = 'ganja2music'
     base_url = 'https://www.ganja2music.com/'
 
@@ -349,7 +353,8 @@ class Ganja2MusicCrawler(Crawler):
                         title=title,
                         published_date=publish_date,
                         post_type=CMusic.SINGLE_TYPE,
-                        post_url=post_page_url
+                        page_url=post_page_url,
+                        wp_category_id=self.category_id
                     )
                 )
                 self.create_music(**kwargs)  # get or create CMusic
@@ -381,7 +386,8 @@ class Ganja2MusicCrawler(Crawler):
                     title=title,
                     album_name_en=album_name_en,
                     published_date=publish_date,
-                    site_id=site_id
+                    site_id=site_id,
+                    wp_category_id=self.category_id
                 )
                 album = self.create_album(site_id, defaults)
 
@@ -399,9 +405,10 @@ class Ganja2MusicCrawler(Crawler):
                             album=album,
                             artist_id=album.artist_id,
                             published_date=publish_date,
-                            post_url=post_page_url,
+                            page_url=post_page_url,
                             post_type=CMusic.ALBUM_MUSIC_TYPE,
                             song_name_en=m.find('div', class_='rightf2').get_text(),
+                            wp_category_id=self.category_id
                         )
                     )
                     self.create_music(**kwargs)

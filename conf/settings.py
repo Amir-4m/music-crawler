@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 
     # third parties
     'django_better_admin_arrayfield',
+    'ckeditor'
 ]
 
 MIDDLEWARE = [
@@ -132,3 +133,12 @@ STATIC_ROOT = BASE_DIR / 'static'
 # Media
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# CKeditor Config
+CKEDITOR_CONFIGS = {
+    'default': {
+        'toolbar': 'full',
+        'height': 600,
+        'width': 850,
+    },
+}

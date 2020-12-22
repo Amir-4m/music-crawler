@@ -20,6 +20,17 @@ class Artist(models.Model):
 
 
 class Album(models.Model):
+    VOID_STATUS = 'void'
+    JUNK_STATUS = 'junk'
+    EDITABLE_STATUS = 'editable'
+    APPROVED_STATUS = 'approved'
+    STATUS_CHOICES = (
+        (VOID_STATUS, _('void')),
+        (JUNK_STATUS, _('junk')),
+        (EDITABLE_STATUS, _('editable')),
+        (APPROVED_STATUS, _('approved')),
+    )
+
     created_time = models.DateTimeField(_('created time'), auto_now_add=True)
     updated_time = models.DateTimeField(_('updated time'), auto_now=True)
     published_date = models.DateField(_("published date"), max_length=20)
@@ -31,10 +42,12 @@ class Album(models.Model):
 
     artist = models.ForeignKey('Artist', on_delete=models.CASCADE, verbose_name=_('artist'))
 
-    page_url = models.TextField(_('url field'))
+    page_url = models.TextField(_('page url'))
     link_thumbnail = models.TextField(_("link thumbnail"))
     link_mp3_128 = models.TextField(_("quality of 128 mp3 link"))
     link_mp3_320 = models.TextField(_("quality of 320 mp3 link"))
+    status = models.CharField(_('status'), max_length=8, choices=STATUS_CHOICES, default=VOID_STATUS)
+    wp_category_id = models.PositiveSmallIntegerField(_('category'), blank=True)
 
     def __str__(self):
         return f"{self.title} {self.id}"
@@ -43,10 +56,20 @@ class Album(models.Model):
 class CMusic(models.Model):
     SINGLE_TYPE = 'single'
     ALBUM_MUSIC_TYPE = 'album-music'
-
     POST_TYPE_CHOICE = (
         (SINGLE_TYPE, _('single')),
         (ALBUM_MUSIC_TYPE, _('album-music'))
+    )
+
+    VOID_STATUS = 'void'
+    JUNK_STATUS = 'junk'
+    EDITABLE_STATUS = 'editable'
+    APPROVED_STATUS = 'approved'
+    STATUS_CHOICES = (
+        (VOID_STATUS, _('void')),
+        (JUNK_STATUS, _('junk')),
+        (EDITABLE_STATUS, _('editable')),
+        (APPROVED_STATUS, _('approved')),
     )
 
     created_time = models.DateTimeField(_('created time'), auto_now_add=True)
@@ -61,7 +84,7 @@ class CMusic(models.Model):
     album = models.ForeignKey('Album', on_delete=models.CASCADE, verbose_name=_('album'), null=True, blank=True)
     artist = models.ForeignKey('Artist', on_delete=models.CASCADE, verbose_name=_('artist'))
 
-    post_url = models.TextField(_("post url"), blank=True   )
+    page_url = models.TextField(_("post url"), blank=True   )
     post_type = models.CharField(_("post type"), max_length=20, choices=POST_TYPE_CHOICE)
     site_id = models.CharField(_('album site id'), max_length=50, unique=True)
 
@@ -79,6 +102,9 @@ class CMusic(models.Model):
     file_thumbnail = models.ImageField(
         _("file thumbnail photo"), upload_to=UploadTo('thumbnail'), null=True, blank=True
     )
+
+    status = models.CharField(_('status'), max_length=8, choices=STATUS_CHOICES, default=VOID_STATUS)
+    wp_category_id = models.PositiveSmallIntegerField(_('category'), blank=True)
 
     def __str__(self):
         return f"{self.title} {self.id}"
