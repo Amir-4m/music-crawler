@@ -25,4 +25,6 @@ CELERY_VHOST = ''
 WP_USER = ''
 WP_PASS = ''
 
+SITE_DOMAIN = 'http://localhost/'
+
 ```

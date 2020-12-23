@@ -7,11 +7,10 @@ from django.core.files.temp import NamedTemporaryFile
 
 import requests
 from bs4 import BeautifulSoup
-from django.db.models import Q
 from khayyam import JalaliDate
 
 from .models import CMusic, Album, Artist
-from .utils import PrintException, per_num_to_eng
+from .utils import PrintException, per_num_to_eng, url_join
 
 months = ["ژانویه", "فوریه", "مارس", "آوریل", "می", "ژوئن", "جولای", "آگوست", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"]
 jalali_months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
@@ -297,7 +296,7 @@ class Ganja2MusicCrawler(Crawler):
     def get_thumbnail(self, soup):
         # Thumbnail
         link_thumbnail = soup.find('div', class_='insidercover').find('a').attrs['href']
-        return "/".join(filter(None, map(lambda x: str(x).rstrip('/'), (self.base_url, link_thumbnail[1:]))))
+        return url_join(self.base_url, link_thumbnail[1:])
 
     def get_content_section_info(self, soup):
         # Name of Music, Artist and Publish Date

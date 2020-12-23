@@ -3,6 +3,7 @@ import os
 import linecache
 import sys
 import logging
+from pprint import pprint
 from urllib.parse import unquote
 
 import requests
@@ -64,6 +65,10 @@ def PrintException():
     linecache.checkcache(filename)
     line = linecache.getline(filename, lineno, f.f_globals)
     logger.error('>> EXCEPTION IN ({}, LINE {} "{}"):\n {}'.format(filename, lineno, line.strip(), exc_obj))
+
+
+def url_join(base_url, path):
+    return "/".join(filter(None, map(lambda x: str(x).rstrip('/'), (base_url, path))))
 
 
 def per_num_to_eng(number):
@@ -129,12 +134,19 @@ class WordPressClient:
         )
 
     def create_single_music(self):
-        from .models import CMusic
         """
         Create a new Music to Wordpress from CMusic and Album object.
         Returns: None
         """
+        from .models import CMusic
+
         media_id = self.create_media()  # Create media for this music
+        meta = [dict(
+                artist_name_persian=self.instance.artist.name_fa,
+                artist_name_english=self.instance.artist.name_en,
+                music_name_persian=self.instance.song_name_fa,
+                music_name_english=self.instance.song_name_en,
+            )]
         payload_data = dict(
             title=self.instance.title,
             content=f"{self.instance.get_artist_info()}\n{self.instance.lyrics}",
@@ -145,23 +157,66 @@ class WordPressClient:
             format='standard',
             categories=[self.instance.wp_category_id],
             featured_media=media_id,
-            meta=dict(
-                artist_name_persian=self.instance.artist.name_fa,
-                artist_name_english=self.instance.artist.name_en,
-                music_name_persian=self.instance.song_name_fa,
-                music_name_english=self.instance.song_name_en,
-                link_128='link_128',
-                link_320='link_320'
-            )
+            meta=meta
         )
+        if self.instance.file_mp3_128:
+            meta[0]['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128)
+        if self.instance.file_mp3_320:
+            meta[0]['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320)
+
+        pprint(payload_data)
         req = self.post_request(
             self.urls['single_music'],
             json=payload_data,
             headers={'Content-Type': 'application/json'}
         )
-        print(req.status_code, req.content)
         if req.ok:
-            self.instance.status = CMusic.APPROVED_STATUS
+            self.update_instance(
+                req.json()['id'],
+                CMusic.APPROVED_STATUS
+            )
+
+    def create_album(self):
+        """
+        :return: None
+        """
+        from .models import Album, CMusic
+
+        media_id = self.create_media()  # Create media for this music
+        meta = dict(
+                artist_name_persian=self.instance.artist.name_fa,
+                artist_name_english=self.instance.artist.name_en,
+                music_name_persian=self.instance.song_name_fa,
+                music_name_english=self.instance.song_name_en,
+            )
+        musics_link = "".join([
+            f"<a href={music.music.get_absolute_url_320()}>{music.song_name_fa or music.song_name_en}</> "
+            for music in CMusic.objects.filter(album=self.instance)
+        ])  # track's link
+
+        payload_data = dict(
+            title=self.instance.title,
+            content=f"{self.instance.get_artist_info()}\n{self.instance.lyrics}",
+            slug=self.instance.album_name_en,
+            status='publish',  # publish, private, draft, pending, future, auto-draft
+            excerpt=self.instance.album_name_en,
+            author=9,
+            format='standard',
+            categories=[self.instance.wp_category_id],
+            featured_media=media_id,
+            meta=meta
+        )
+        pprint(payload_data)
+        req = self.post_request(
+            self.urls['single_music'],
+            json=payload_data,
+            headers={'Content-Type': 'application/json'}
+        )
+        if req.ok:
+            self.update_instance(
+                req.json()['id'],
+                Album.APPROVED_STATUS
+            )
 
     def create_media(self):
         """
@@ -184,3 +239,7 @@ class WordPressClient:
         if req.ok:
             return req.json()['id']
 
+    def update_instance(self, wp_id, status, **kwargs):
+        self.instance.wp_post_id = wp_id
+        self.instance.status = status
+        self.instance.save()

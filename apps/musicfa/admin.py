@@ -1,21 +1,41 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.utils.safestring import mark_safe
+from django.utils.translation import ugettext_lazy as _
 
 from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
 
 from .models import CMusic, Album, Artist
+from .tasks import create_single_music
 from .views import start_new_crawl
-from .utils import checking_task_status
+from .utils import checking_task_status, WordPressClient
 from .forms import CMusicForm
 
 
 @admin.register(CMusic)
 class CMusicAdmin(admin.ModelAdmin):
     form = CMusicForm
+    change_form_template = 'changes.html'
     change_list_template = 'change_list.html'
+    actions = ['send_to_word_press']
     list_display = ("song_name_en", 'artist', "title", "post_type", 'is_downloaded')
     list_filter = ['is_downloaded']
-    readonly_fields = ['album']
+    readonly_fields = ['album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date']
     ordering = ['-id']
+    fieldsets = (
+        ('Music', {'fields': ('title', 'song_name_fa', 'song_name_en', 'artist', 'lyrics', 'status')}),
+        (
+            'Extra Data', {
+                'classes': ('collapse',), 'fields': (
+                    'page_url', 'site_id', 'post_type', 'wp_category_id', 'wp_post_id', 'is_downloaded',
+                    'published_date'
+                )
+            }
+        ),
+        ('Links', {'classes': ('collapse',), 'fields': ('link_mp3_128', 'link_mp3_320', 'link_thumbnail')}),
+        ('Files', {'classes': ('collapse',), 'fields': (
+            'file_mp3_128', 'file_mp3_320', 'file_thumbnail', 'get_thumbnail'
+        )})
+    )
 
     def get_urls(self):
         from django.urls import path
@@ -32,11 +52,45 @@ class CMusicAdmin(admin.ModelAdmin):
             response.context_data['crawl_status_ganja'] = checking_task_status('collect_musics_ganja')
         return response
 
+    def change_view(self, request, object_id, **kwargs):
+        if '_sned_to_wp' in request.POST:
+            create_single_music.apply_async(args=(object_id,))
+        messages.info(request, _('creating new post on wordpress'))
+        return super().change_view(request, object_id, **kwargs)
+
+    def get_thumbnail(self, obj):
+        from django.utils.html import escape
+        return mark_safe(f'<img src="{escape(obj.file_thumbnail.url)}" height="20%" width="20%"/>')
+    get_thumbnail.short_description = _('current thumbnail')
+
+    def send_to_word_press(self, request, queryset):
+        for q in queryset:
+            WordPressClient(q).create_single_music()
+        messages.info(request, _('selected musics created at wordpress!'))
+
 
 @admin.register(Album)
 class AlbumAdmin(admin.ModelAdmin):
     list_display = ("album_name_en", 'artist')
+    search_fields = ['album_name_en', 'album_name_fa', 'title']
     ordering = ['-id']
+    readonly_fields = ['get_thumbnail']
+    fieldsets = (
+        ('Album', {'fields': ('title', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
+        (
+            'Extra Data', {
+                'classes': ('collapse',), 'fields': ('page_url', 'site_id', 'wp_category_id', 'wp_post_id')
+            }
+        ),
+        ('Links', {'classes': ('collapse',), 'fields': (
+            'link_mp3_128', 'link_mp3_320', 'link_thumbnail', 'get_thumbnail'
+        )}),
+    )
+
+    def get_thumbnail(self, obj):
+        from django.utils.html import escape
+        return mark_safe(f'<img src="{escape(obj.link_thumbnail)}" height="20%" width="20%"/>')
+    get_thumbnail.short_description = _('current thumbnail')
 
 
 @admin.register(Artist)

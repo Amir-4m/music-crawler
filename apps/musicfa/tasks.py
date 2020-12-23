@@ -3,7 +3,13 @@ from importlib import import_module
 from celery import shared_task
 
 from .crawler import NicMusicCrawler, Ganja2MusicCrawler
-from .utils import stop_duplicate_task
+from .utils import stop_duplicate_task, WordPressClient
+from .models import CMusic
+
+
+@shared_task
+def create_single_music(object_id):
+    WordPressClient(CMusic.objects.get(id=object_id)).create_single_music()
 
 
 @shared_task

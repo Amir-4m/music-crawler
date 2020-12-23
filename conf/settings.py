@@ -144,5 +144,7 @@ CKEDITOR_CONFIGS = {
 }
 
 # Wordpress Auth
-WP_USER = config('WP_USER')
-WP_PASS = config('WP_PASS')
+WP_USER = config('WP_USER', cast=str)
+WP_PASS = config('WP_PASS', cast=str)
+
+SITE_DOMAIN = config('SITE_DOMAIN')

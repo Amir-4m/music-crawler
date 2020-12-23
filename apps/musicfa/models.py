@@ -1,9 +1,10 @@
+from django.conf import settings
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
 from django_better_admin_arrayfield.models.fields import ArrayField
 
-from .utils import UploadTo
+from .utils import UploadTo, url_join
 
 
 class Artist(models.Model):
@@ -35,19 +36,22 @@ class Album(models.Model):
     updated_time = models.DateTimeField(_('updated time'), auto_now=True)
     published_date = models.DateField(_("published date"), max_length=20)
 
-    album_name_en = models.CharField(_("album name en"), max_length=250)
-    site_id = models.CharField(_('album site id'), max_length=50, unique=True, blank=True)
-
     title = models.CharField(_("title"), max_length=250, blank=True)
+    album_name_en = models.CharField(_("album name en"), max_length=250)
+    album_name_fa = models.CharField(_("album name en"), max_length=250)
 
     artist = models.ForeignKey('Artist', on_delete=models.CASCADE, verbose_name=_('artist'))
 
     page_url = models.TextField(_('page url'))
+    site_id = models.CharField(_('album site id'), max_length=50, unique=True, blank=True)
+
     link_thumbnail = models.TextField(_("link thumbnail"))
     link_mp3_128 = models.TextField(_("quality of 128 mp3 link"))
     link_mp3_320 = models.TextField(_("quality of 320 mp3 link"))
+
     status = models.CharField(_('status'), max_length=8, choices=STATUS_CHOICES, default=VOID_STATUS)
     wp_category_id = models.PositiveSmallIntegerField(_('category'), blank=True)
+    wp_post_id = models.PositiveIntegerField(_('wordpress post id'), blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} {self.id}"
@@ -84,7 +88,7 @@ class CMusic(models.Model):
     album = models.ForeignKey('Album', on_delete=models.CASCADE, verbose_name=_('album'), null=True, blank=True)
     artist = models.ForeignKey('Artist', on_delete=models.CASCADE, verbose_name=_('artist'))
 
-    page_url = models.TextField(_("post url"), blank=True   )
+    page_url = models.TextField(_("post url"), blank=True)
     post_type = models.CharField(_("post type"), max_length=20, choices=POST_TYPE_CHOICE)
     site_id = models.CharField(_('album site id'), max_length=50, unique=True)
 
@@ -105,9 +109,18 @@ class CMusic(models.Model):
 
     status = models.CharField(_('status'), max_length=8, choices=STATUS_CHOICES, default=VOID_STATUS)
     wp_category_id = models.PositiveSmallIntegerField(_('category'), blank=True)
+    wp_post_id = models.PositiveIntegerField(_('wordpress post id'), blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} {self.id}"
 
     def get_artist_info(self):
         return f"{self.artist.name_fa}\n{self.artist.name_en}"
+
+    def get_absolute_url_128(self):
+        if self.file_mp3_128:
+            return url_join(settings.SITE_DOMAIN, self.file_mp3_128.url)
+
+    def get_absolute_url_320(self):
+        if self.file_mp3_320:
+            return url_join(settings.SITE_DOMAIN, self.file_mp3_320.url)
