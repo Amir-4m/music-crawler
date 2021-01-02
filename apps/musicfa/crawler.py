@@ -379,6 +379,7 @@ class Ganja2MusicCrawler(Crawler):
 
                 defaults = dict(
                     artist=self.create_artist(artist_name_en, ''),
+                    page_url=post_page_url,
                     link_mp3_128=link_128,
                     link_mp3_320=link_320,
                     link_thumbnail=link_thumbnail,
@@ -397,7 +398,7 @@ class Ganja2MusicCrawler(Crawler):
                     link_mp3_320 = m.find('div', class_='rightf3').find('a').attrs['href']
                     kwargs = dict(
                         # creating custom site id for `album-musics` type from album site id
-                        site_id=f"{site_id + 1001 + index}",
+                        site_id=f"{int(site_id) + 1001 + index}",
                         defaults=dict(
                             link_mp3_128=m.find('div', class_='rightf3 plyiter').find('a').attrs['href'],
                             link_mp3_320=link_mp3_320,

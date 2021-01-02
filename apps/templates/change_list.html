@@ -5,29 +5,24 @@
     <div>
         <ol>
             <li>
-                <a href="{% url 'admin:start-crawl' 'collect_musics_nic' %}">start crawl on nicmusic.net</a>
-                <span style="padding-left: 10px">
-                    running:
-                    {% if crawl_status_nic %}
-                        <img src="{% static  'admin/img/icon-yes.svg' %}" alt="True">
-                    {% else %}
-                        <img src="{% static  'admin/img/icon-no.svg' %}" alt="False">
-                    {% endif %}
-                </span>
+                {% if crawl_status_nic %}
+                    <span>Crawling nicmusic.net</span>
+                    <img src="{% static  'admin/img/icon-yes.svg' %}" alt="True">
+                {% else %}
+                    <a href="{% url 'admin:start-crawl' 'collect_musics_nic' %}">start crawl on nicmusic.net</a>
+                    <span>running:</span><img src="{% static  'admin/img/icon-no.svg' %}" alt="False">
+                {% endif %}
             </li>
             <li>
-                <a href="{% url 'admin:start-crawl' 'collect_musics_ganja' %}">start crawl on ganja2music.com</a>
-                <span style="padding-left: 10px">
-                    running:
-                    {% if crawl_status_ganja %}
-                        <img src="{% static  'admin/img/icon-yes.svg' %}" alt="True">
-                    {% else %}
-                        <img src="{% static  'admin/img/icon-no.svg' %}" alt="False">
-                    {% endif %}
-                </span>
+                {% if crawl_status_ganja %}
+                    <span>Crawling ganja2music.com</span>
+                    <img src="{% static  'admin/img/icon-yes.svg' %}" alt="True">
+                {% else %}
+                    <a href="{% url 'admin:start-crawl' 'collect_musics_ganja' %}">start crawl on ganja2music.com</a>
+                    <span>running:</span><img src="{% static  'admin/img/icon-no.svg' %}" alt="False">
+                {% endif %}
             </li>
         </ol>
-
     </div>
     {{ block.super }}
 {% endblock %}

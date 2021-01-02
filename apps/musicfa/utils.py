@@ -11,7 +11,6 @@ from django.conf import settings
 from pid import PidFile
 from requests.auth import HTTPBasicAuth
 
-
 logger = logging.getLogger(__file__)
 
 
@@ -19,6 +18,7 @@ class UploadTo:
     """
     This class handle the path of each file that download.
     """
+
     def __init__(self, field_name):
         self.field_name = field_name
 
@@ -106,6 +106,7 @@ def stop_duplicate_task(func):
         if file_lock:
             file_lock.close()
         return True
+
     return inner_function
 
 
@@ -158,6 +159,7 @@ class WordPressClient:
             json=payload_data,
             headers={'Content-Type': 'application/json'}
         )
+        print(req.content)
         if req.ok:
             post_wp_id = req.json()['id']
             logger.info(f'>> Music posted successfully! wordpress id: {post_wp_id}')
@@ -165,22 +167,24 @@ class WordPressClient:
                 post_wp_id,
                 CMusic.APPROVED_STATUS
             )
-            self.update_acf_fields()
+
+            # ACF fields of single music
+            fields = dict(
+                fields=dict(
+                    artist_name_persian=self.instance.artist.name_fa,
+                    artist_name_english=self.instance.artist.name_en,
+                    music_name_persian=self.instance.song_name_fa,
+                    music_name_english=self.instance.song_name_en,
+                ))
+            if self.instance.file_mp3_128:
+                fields['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128)
+            if self.instance.file_mp3_320:
+                fields['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320)
+            self.update_acf_fields(fields)
         else:
-            logger.error(f'>> Create Music post failed! CMusic id: {self.instance.id}')
+            logger.error(f'>> Create Music post failed! CMusic id: {self.instance.id} status code: {req.status_code}')
 
-    def update_acf_fields(self):
-        fields = [dict(
-            artist_name_persian=self.instance.artist.name_fa,
-            artist_name_english=self.instance.artist.name_en,
-            music_name_persian=self.instance.song_name_fa,
-            music_name_english=self.instance.song_name_en,
-        )]
-        if self.instance.file_mp3_128:
-            fields[0]['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128)
-        if self.instance.file_mp3_320:
-            fields[0]['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320)
-
+    def update_acf_fields(self, fields):
         req = self.post_request(
             self.urls['acf_fields'],
             json=fields,
@@ -189,7 +193,7 @@ class WordPressClient:
         if req.ok:
             logger.info(f'>> ACF field updated successfully wordpress id: {self.instance.wp_post_id}')
         else:
-            logger.error(f'>> ACF Field update failed! wordpress id: {self.instance.wp_post_id}')
+            logger.error(f'>> ACF Field update failed! wordpress id: {self.instance.wp_post_id}, status code: {req.status_code}')
 
     def create_album(self):
         """
@@ -198,12 +202,7 @@ class WordPressClient:
         from .models import Album, CMusic
 
         media_id = self.create_media()  # Create media for this music
-        meta = dict(
-                artist_name_persian=self.instance.artist.name_fa,
-                artist_name_english=self.instance.artist.name_en,
-                music_name_persian=self.instance.song_name_fa,
-                music_name_english=self.instance.song_name_en,
-            )
+
         musics_link = "".join([
             f"<a href={music.music.get_absolute_url_320()}>{music.song_name_fa or music.song_name_en}</> "
             for music in CMusic.objects.filter(album=self.instance)
@@ -218,10 +217,8 @@ class WordPressClient:
             author=9,
             format='standard',
             categories=[self.instance.wp_category_id],
-            featured_media=media_id,
-            meta=meta
+            featured_media=media_id
         )
-        pprint(payload_data)
         req = self.post_request(
             self.urls['single_music'],
             json=payload_data,
@@ -232,6 +229,18 @@ class WordPressClient:
                 req.json()['id'],
                 Album.APPROVED_STATUS
             )
+
+            # ACF fields of album
+            fields = dict(
+                fields=dict(
+                    artist_name_persian=self.instance.artist.name_fa,
+                    artist_name_english=self.instance.artist.name_en,
+                    music_name_persian=self.instance.song_name_fa,
+                    music_name_english=self.instance.song_name_en,
+                    musics_link=musics_link  # TODO fix the field
+                ))
+
+            self.update_acf_fields(fields)
 
     def create_media(self):
         """

@@ -37,10 +37,10 @@ class Album(models.Model):
     published_date = models.DateField(_("published date"), max_length=20)
 
     title = models.CharField(_("title"), max_length=250, blank=True)
-    album_name_en = models.CharField(_("album name en"), max_length=250)
-    album_name_fa = models.CharField(_("album name en"), max_length=250)
+    album_name_en = models.CharField(_("album name en"), max_length=250, blank=True)
+    album_name_fa = models.CharField(_("album name en"), max_length=250, blank=True)
 
-    artist = models.ForeignKey('Artist', on_delete=models.CASCADE, verbose_name=_('artist'))
+    artist = models.ForeignKey('Artist', on_delete=models.CASCADE, verbose_name=_('artist'), blank=True)
 
     page_url = models.TextField(_('page url'))
     site_id = models.CharField(_('album site id'), max_length=50, unique=True, blank=True)

@@ -5,20 +5,39 @@ from django.utils.translation import ugettext_lazy as _
 from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
 
 from .models import CMusic, Album, Artist
-from .tasks import create_single_music
+from .tasks import create_single_music_post_task, create_album_post_task
 from .views import start_new_crawl
-from .utils import checking_task_status, WordPressClient
+from .utils import checking_task_status
 from .forms import CMusicForm
+
+
+class CMusicInline(admin.TabularInline):
+    model = CMusic
+    readonly_fields = ('song_name_en', 'get_download_link', 'is_downloaded')
+    fields = ('song_name_en', 'get_download_link', 'is_downloaded')
+    show_change_link = True
+    extra = 0
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj):
+        return False
+
+    def get_download_link(self, obj):
+        return mark_safe(f'<a href="{obj.link_mp3_320}">320 link</a>    <a href="{obj.link_mp3_128}">128 link</a>')
+    get_download_link.short_description = _('download link')
 
 
 @admin.register(CMusic)
 class CMusicAdmin(admin.ModelAdmin):
     form = CMusicForm
+    raw_id_fields = ['artist']
     change_form_template = 'changes.html'
     change_list_template = 'change_list.html'
     actions = ['send_to_word_press']
     list_display = ("song_name_en", 'artist', "title", "post_type", 'is_downloaded')
-    list_filter = ['is_downloaded']
+    list_filter = ['is_downloaded', 'post_type']
     readonly_fields = ['album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date']
     ordering = ['-id']
     fieldsets = (
@@ -54,23 +73,26 @@ class CMusicAdmin(admin.ModelAdmin):
 
     def change_view(self, request, object_id, **kwargs):
         if '_sned_to_wp' in request.POST:
-            create_single_music.apply_async(args=(object_id,))
+            create_single_music_post_task.apply_async(args=([object_id],))
         messages.info(request, _('creating new post on wordpress'))
         return super().change_view(request, object_id, **kwargs)
 
     def get_thumbnail(self, obj):
         from django.utils.html import escape
-        return mark_safe(f'<img src="{escape(obj.file_thumbnail.url)}" height="20%" width="20%"/>')
+        return mark_safe(
+            f'<img src="{escape(obj.file_thumbnail.url if obj.file_thumbnail else obj.link_thumbnail)}" '
+            f'height="20%" width="20%"/>'
+        )
     get_thumbnail.short_description = _('current thumbnail')
 
     def send_to_word_press(self, request, queryset):
-        for q in queryset:
-            WordPressClient(q).create_single_music()
+        create_single_music_post_task.apply_async(args=([q.id for q in queryset],))
         messages.info(request, _('selected musics created at wordpress!'))
 
 
 @admin.register(Album)
 class AlbumAdmin(admin.ModelAdmin):
+    inlines = [CMusicInline]
     list_display = ("album_name_en", 'artist')
     search_fields = ['album_name_en', 'album_name_fa', 'title']
     ordering = ['-id']
@@ -91,6 +113,10 @@ class AlbumAdmin(admin.ModelAdmin):
         from django.utils.html import escape
         return mark_safe(f'<img src="{escape(obj.link_thumbnail)}" height="20%" width="20%"/>')
     get_thumbnail.short_description = _('current thumbnail')
+
+    def send_to_word_press(self, request, queryset):
+        create_album_post_task.apply_async(args=([q.id for q in queryset]))
+        messages.info(request, _('selected albums created at wordpress!'))
 
 
 @admin.register(Artist)
