@@ -49,12 +49,20 @@ class Album(models.Model):
     link_mp3_128 = models.TextField(_("quality of 128 mp3 link"))
     link_mp3_320 = models.TextField(_("quality of 320 mp3 link"))
 
+    is_downloaded = models.BooleanField(_('is downloaded'), default=False)
+    file_thumbnail = models.ImageField(
+        _("file thumbnail photo"), upload_to=UploadTo('thumbnail'), null=True, blank=True
+    )
+
     status = models.CharField(_('status'), max_length=8, choices=STATUS_CHOICES, default=VOID_STATUS)
     wp_category_id = models.PositiveSmallIntegerField(_('category'), blank=True)
     wp_post_id = models.PositiveIntegerField(_('wordpress post id'), blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} {self.id}"
+
+    def get_artist_info(self):
+        return f"{self.artist.name_fa}\n{self.artist.name_en}"
 
 
 class CMusic(models.Model):

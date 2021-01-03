@@ -143,6 +143,15 @@ CKEDITOR_CONFIGS = {
     },
 }
 
+# Cache
+CACHES = {
+    'default': {
+        'BACKEND': config('CACHE_BACKEND', default='django.core.cache.backends.locmem.LocMemCache', cast=str),
+        'LOCATION': config('CACHE_HOST', default='', cast=str),
+        'KEY_PREFIX': config('CACHE_PREFIX', default='GENERIC_MUSIC', cast=str),
+    },
+}
+
 # Wordpress Auth
 WP_USER = config('WP_USER', cast=str)
 WP_PASS = config('WP_PASS', cast=str)

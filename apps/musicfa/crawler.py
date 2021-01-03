@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from khayyam import JalaliDate
 
 from .models import CMusic, Album, Artist
-from .utils import PrintException, per_num_to_eng, url_join
+from .utils import per_num_to_eng, url_join
 
 months = ["ژانویه", "فوریه", "مارس", "آوریل", "می", "ژوئن", "جولای", "آگوست", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"]
 jalali_months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
@@ -68,6 +68,14 @@ class Crawler:
         ).order_by('-id'):
             yield c
 
+    def get_crawler_album(self):
+        logger.info(f'>> Getting the crawled album to download the files...')
+        for c in Album.objects.filter(
+                is_downloaded=False,
+                page_url__icontains=self.website_name
+        ).order_by('-id'):
+            yield c
+
     def download_content(self, url):
         """
         :param url: URL of file to download the it.
@@ -76,9 +84,10 @@ class Crawler:
         try:
             logger.info(f'>> Starting Download the URL: {url}')
             r = requests.get(url, allow_redirects=False)
+            print(r.url)
+            print(r.status_code)
         except Exception as e:
-            logger.error(f'>> Downloading file failed. {e}')
-            PrintException()
+            logger.exception(f'>> Downloading file failed. {e}')
             return None
         img_temp = NamedTemporaryFile(delete=True)
         img_temp.write(r.content)
@@ -113,8 +122,7 @@ class Crawler:
                 logger.info(
                     f'>> Duplicate {c_music.post_type} Music found id:{c_music.id} album id: {c_music.album_id}')
         except Exception as e:
-            logger.error(">> Creating music failed ")
-            PrintException()
+            logger.exception(">> Creating music failed ")
 
     def create_album(self, site_id, defaults):
         try:
@@ -123,8 +131,7 @@ class Crawler:
                 defaults=defaults
             )
         except Exception as e:
-            logger.error(">> Creating album failed ")
-            PrintException()
+            logger.exception(">> Creating album failed ")
             return
         if created:
             logger.info(f'>> New Album created id: {album.id}')
@@ -139,8 +146,7 @@ class Crawler:
                 defaults=dict(name_fa=name_fa, name_en=name_en, correct_names=[name_fa, name_en])
             )
         except Exception as e:
-            logger.error(">> Creating artist failed ")
-            PrintException()
+            logger.exception(">> Creating artist failed ")
             return
         if created:
             logger.info(f'>> New artist created id: {artist.id}')
@@ -161,8 +167,7 @@ class NicMusicCrawler(Crawler):
             try:
                 c.save()
             except Exception as e:
-                logger.error(f'>> collect files failed CMusic id: {c.id}')
-                PrintException()
+                logger.exception(f'>> collect files failed CMusic id: {c.id}')
 
     def collect_links(self):
         super().collect_links()
@@ -177,8 +182,7 @@ class NicMusicCrawler(Crawler):
                 for post in soup.find_all("a", class_="show-more"):
                     yield post.attrs["href"]
         except Exception as e:
-            logger.error(f">> Collecting links failed {self.website_name}")
-            PrintException()
+            logger.exception(f">> Collecting links failed {self.website_name}")
 
     def collect_musics(self):
         super().collect_musics()
@@ -262,8 +266,7 @@ class NicMusicCrawler(Crawler):
                     )
                     self.create_music(**kwargs)
             except Exception as e:
-                logger.error(f'>> 1 collect music {self.website_name}')
-                PrintException()
+                logger.exception(f'>> 1 collect music {self.website_name}')
                 continue
 
     def get_site_id(self, soup):
@@ -358,8 +361,7 @@ class Ganja2MusicCrawler(Crawler):
                 )
                 self.create_music(**kwargs)  # get or create CMusic
             except Exception as e:
-                logger.error(f'>> Collect Single Music failed')
-                PrintException()
+                logger.exception(f'>> Collect Single Music failed')
                 continue
 
     def collect_link_albums(self):
@@ -413,8 +415,7 @@ class Ganja2MusicCrawler(Crawler):
                     )
                     self.create_music(**kwargs)
             except Exception as e:
-                logger.error(f">> Creating album failed URL {post_page_url}")
-                PrintException()
+                logger.exception(f">> Creating album failed URL {post_page_url}")
                 continue
 
     def detect_new_post_in_page(self, main_page_url, soup):
@@ -436,8 +437,7 @@ class Ganja2MusicCrawler(Crawler):
                 for post_detail in soup.find_all('div', class_='postbox'):
                     yield post_detail.find('a', class_='iaebox').attrs['href']
         except Exception as e:
-            logger.error(f'>> Getting first page failed')
-            PrintException()
+            logger.exception(f'>> Getting first page failed')
             return
         # Crawling the next pages
         while next_page_link:
@@ -454,12 +454,15 @@ class Ganja2MusicCrawler(Crawler):
                     'href']
                 logger.info(f'>>> Next Page URL: {next_page_link}')
             except Exception as e:
-                logger.error(f'>> Navigating pages failed current page {next_page_link}')
-                PrintException()
+                logger.exception(f'>> Navigating pages failed current page {next_page_link}')
                 continue
 
     def collect_files(self):
         super().collect_files()
+        self.collect_album_files()
+        self.collect_music_files()
+
+    def collect_music_files(self):
         for c in self.get_crawled_musics():
             if c.album or CMusic.ALBUM_MUSIC_TYPE:  # downloading just the 320 file from album-music
                 c.file_mp3_320 = self.download_content(c.link_mp3_320)
@@ -470,5 +473,15 @@ class Ganja2MusicCrawler(Crawler):
             try:
                 c.save()
             except Exception as e:
-                logger.error(f'>> collect files failed CMusic id: {c.id}')
-                PrintException()
+                logger.exception(f'>> collect files failed CMusic id: {c.id}')
+
+    def collect_album_files(self):
+        for c in self.get_crawler_album():
+            c.file_thumbnail = self.download_content(c.link_thumbnail)
+            if c.file_thumbnail:
+                c.is_downloaded = True
+            try:
+                c.save()
+            except Exception as e:
+                logger.exception(f'>> collect files failed CMusic id: {c.id}')
+

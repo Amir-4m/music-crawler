@@ -3,11 +3,12 @@ import os
 import linecache
 import sys
 import logging
-from pprint import pprint
 from urllib.parse import unquote
 
-import requests
 from django.conf import settings
+from django.core.cache import cache
+
+import requests
 from pid import PidFile
 from requests.auth import HTTPBasicAuth
 
@@ -103,6 +104,7 @@ def stop_duplicate_task(func):
     :param func: function.__name__ will be used to stop duplicate tasks.
     :return: True or False
     """
+
     def inner_function():
         file_lock = check_running(func.__name__)
         if not file_lock:
@@ -118,10 +120,15 @@ def stop_duplicate_task(func):
 
 class WordPressClient:
     base_url = 'https://test.delnava.com/wp-json/'
+    token_cache_key = 'wordpress_auth_token'
     urls = {
-        'single_music': 'wp/v2/music/',
+        'token': 'jwt-auth/v1/token',
+        'validate-token': 'jwt-auth/v1/token/validate',
         'media': 'wp/v2/media/',
-        'acf_fields': 'acf/v3/music/'
+        'album': 'wp/v2/album/',
+        'single_music': 'wp/v2/music/',
+        'acf_fields_music': 'acf/v3/music/',
+        'acf_fields_album': 'acf/v3/album/'
     }
 
     def __init__(self, instance):
@@ -132,16 +139,46 @@ class WordPressClient:
             instance: Instance is CMusic or Album object.
         """
         self.instance = instance
+        self.token = cache.get(self.token_cache_key) or self.get_token()
+        self.validate_token(self.token)
 
-    def post_request(self, url, method='post', headers=None, **kwargs):
-        if headers:
-            kwargs.update({'headers': headers})
+    def post_request(self, url, method='post', json_content=None, auth=None, **kwargs):
+        headers = {}
+        if json_content:
+            headers.update({'Content-Type': 'application/json'})
+        if auth:
+            headers.update({'Authorization': f"Bearer {self.token}"})
+
+        kwargs.update({'headers': headers})
         return requests.request(
             method,
             f"{self.base_url + url}",
-            auth=HTTPBasicAuth(settings.WP_USER, settings.WP_PASS),
             **kwargs
         )
+
+    def get_token(self):
+        logger.info('>> getting new token')
+        req = self.post_request(
+            self.urls['token'],
+            json=dict(username=settings.WP_USER, password=settings.WP_PASS),
+        )
+        if req.ok:
+            token = req.json()['data']['token']
+            logger.info(f'>> new token successfully added token: {token}')
+            cache.set(self.token_cache_key, token, 604800)  # 7 days default expire time
+            return token
+        else:
+            logger.critical(f'>> Getting token failed. user: {settings.WP_USER} pass: {settings.WP_PASS}')
+
+    def validate_token(self, token):
+        req = self.post_request(
+            self.urls['validate-token'],
+            auth=True,
+        )
+        if req.ok:
+            logger.info(f'>> token is valid.')
+        else:
+            logger.error(f'>> token is not valid')
 
     def create_single_music(self):
         """
@@ -164,10 +201,10 @@ class WordPressClient:
         )
         req = self.post_request(
             self.urls['single_music'],
+            json_content=True,
+            auth=True,
             json=payload_data,
-            headers={'Content-Type': 'application/json'}
         )
-        print(req.status_code, req.json())
         if req.ok:
             post_wp_id = req.json()['id']
             logger.info(f'>> Music posted successfully! wordpress id: {post_wp_id}')
@@ -185,24 +222,12 @@ class WordPressClient:
                     music_name_english=self.instance.song_name_en,
                 ))
             if self.instance.file_mp3_128:
-                fields['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128)
+                fields['fields']['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128)
             if self.instance.file_mp3_320:
-                fields['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320)
-            self.update_acf_fields(fields)
+                fields['fields']['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320)
+            self.update_acf_fields(fields, f"{self.urls['acf_fields_music']}{self.instance.wp_post_id}/")
         else:
             logger.error(f'>> Create Music post failed! CMusic id: {self.instance.id} status code: {req.status_code}')
-
-    def update_acf_fields(self, fields):
-        req = self.post_request(
-            f"{self.urls['acf_fields']}{self.instance.wp_post_id}/",
-            method='put',
-            json=fields,
-            headers={'Content-Type': 'application/json'}
-        )
-        if req.ok:
-            logger.info(f'>> ACF field updated successfully wordpress id: {self.instance.wp_post_id}')
-        else:
-            logger.error(f'>> ACF Field update failed! wordpress id: {self.instance.wp_post_id}, status code: {req.status_code}')
 
     def create_album(self):
         """
@@ -210,16 +235,18 @@ class WordPressClient:
         """
         from .models import Album, CMusic
 
-        media_id = self.create_media()  # Create media for this music
+        # Create media for this album
+        first_music = self.instance.cmusic_set.first()
+        media_id = self.create_media()
 
         musics_link = "".join([
-            f"<a href={music.music.get_absolute_url_320()}>{music.song_name_fa or music.song_name_en}</> "
+            f"<a href={music.get_absolute_url_320()}>{music.song_name_fa or music.song_name_en}</a></br>"
             for music in CMusic.objects.filter(album=self.instance)
         ])  # track's link
 
         payload_data = dict(
             title=self.instance.title,
-            content=f"{self.instance.get_artist_info()}\n{self.instance.lyrics}",
+            content=f"{self.instance.get_artist_info()}",
             slug=self.instance.album_name_en,
             status='publish',  # publish, private, draft, pending, future, auto-draft
             excerpt=self.instance.album_name_en,
@@ -229,9 +256,10 @@ class WordPressClient:
             featured_media=media_id
         )
         req = self.post_request(
-            self.urls['single_music'],
+            self.urls['album'],
+            json_content=True,
+            auth=True,
             json=payload_data,
-            headers={'Content-Type': 'application/json'}
         )
         if req.ok:
             self.update_instance(
@@ -244,12 +272,12 @@ class WordPressClient:
                 fields=dict(
                     artist_name_persian=self.instance.artist.name_fa,
                     artist_name_english=self.instance.artist.name_en,
-                    music_name_persian=self.instance.song_name_fa,
-                    music_name_english=self.instance.song_name_en,
-                    musics_link=musics_link  # TODO fix the field
+                    music_name_persian=first_music.song_name_fa,
+                    music_name_english=first_music.song_name_en,
+                    album_link=musics_link  # TODO fix the field
                 ))
 
-            self.update_acf_fields(fields)
+            self.update_acf_fields(fields, f"{self.urls['acf_fields_album']}{self.instance.wp_post_id}/")
 
     def create_media(self):
         """
@@ -261,6 +289,7 @@ class WordPressClient:
         payload_data = dict(status='draft')
         req = self.post_request(
             self.urls['media'],
+            auth=True,
             data={'file': file_name, 'data': json.dumps(payload_data)},
             files={'file': (
                 file_name,
@@ -276,3 +305,17 @@ class WordPressClient:
         self.instance.wp_post_id = wp_id
         self.instance.status = status
         self.instance.save()
+
+    def update_acf_fields(self, fields, url):
+        req = self.post_request(
+            url,
+            method='put',
+            json_content=True,
+            auth=True,
+            json=fields,
+        )
+        if req.ok:
+            logger.info(f'>> ACF field updated successfully wordpress id: {self.instance.wp_post_id}')
+        else:
+            logger.error(
+                f'>> ACF Field update failed! wordpress id: {self.instance.wp_post_id}, status code: {req.status_code}')

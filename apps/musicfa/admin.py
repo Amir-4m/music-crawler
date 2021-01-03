@@ -93,10 +93,12 @@ class CMusicAdmin(admin.ModelAdmin):
 @admin.register(Album)
 class AlbumAdmin(admin.ModelAdmin):
     inlines = [CMusicInline]
-    list_display = ("album_name_en", 'artist')
+    list_display = ("album_name_en", 'artist', 'status')
     search_fields = ['album_name_en', 'album_name_fa', 'title']
+    list_filter = ['is_downloaded']
     ordering = ['-id']
     readonly_fields = ['get_thumbnail']
+    actions = ['send_to_word_press']
     fieldsets = (
         ('Album', {'fields': ('title', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
         (
@@ -105,13 +107,14 @@ class AlbumAdmin(admin.ModelAdmin):
             }
         ),
         ('Links', {'classes': ('collapse',), 'fields': (
-            'link_mp3_128', 'link_mp3_320', 'link_thumbnail', 'get_thumbnail'
+            'link_mp3_128', 'link_mp3_320', 'link_thumbnail', 'file_thumbnail', 'get_thumbnail'
         )}),
     )
 
     def get_thumbnail(self, obj):
         from django.utils.html import escape
-        return mark_safe(f'<img src="{escape(obj.link_thumbnail)}" height="20%" width="20%"/>')
+        return mark_safe(f'<img src="{escape(obj.file_thumbnail.url if obj.file_thumbnail else obj.link_thumbnail)}"'
+                         f' height="20%" width="20%"/>')
     get_thumbnail.short_description = _('current thumbnail')
 
     def send_to_word_press(self, request, queryset):

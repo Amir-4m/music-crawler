@@ -10,7 +10,7 @@ from .models import CMusic, Album
 
 
 @shared_task
-def create_single_music_post_task(object_ids):
+def create_single_music_post_task(*object_ids):
     """
     Creating a post (single music) on Word press from CMusic object
     :param object_ids: list of CMusic's id object
@@ -21,14 +21,14 @@ def create_single_music_post_task(object_ids):
 
 
 @shared_task
-def create_album_post_task(object_ids):
+def create_album_post_task(*object_ids):
     """
     Creating a post (album) on Word press from Album and CMusic object
     :param object_ids: list of Album's id object
     :return: None
     """
-    for q in Album.objects.get(id__in=object_ids):
-        WordPressClient(q).create_single_music()
+    for q in Album.objects.filter(id__in=object_ids):
+        WordPressClient(q).create_album()
 
 
 @shared_task
