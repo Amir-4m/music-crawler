@@ -45,23 +45,39 @@ def run_crawl(func_name):
 
 @periodic_task(run_every=crontab(hour="*/24", minute=0))
 def periodic_crawler_ganja():
+    """
+    Periodic task to crawl the ganja2music site.
+    :return: None
+    """
     collect_musics_ganja()
 
 
 @periodic_task(run_every=crontab(hour="*/24", minute=0))
 def periodic_crawler_nic():
+    """
+    Periodic task to crawl the nicmusic site.
+    :return: None
+    """
     collect_musics_nic()
 
 
 @stop_duplicate_task
 def collect_musics_nic():
-    NicMusicCrawler().collect_musics()  # start collecting single music
+    """
+    Collecting the single musics of nicmusic after that downloading the files of them.
+    :return: None
+    """
+    NicMusicCrawler().collect_musics()
     collect_files_nic()
 
 
 @stop_duplicate_task
 def collect_musics_ganja():
-    Ganja2MusicCrawler().collect_musics()  # start collecting both album and single music
+    """
+    Collecting the albums and single musics of ganja2music after that downloading the files of them.
+    :return: None
+    """
+    Ganja2MusicCrawler().collect_musics()
     collect_files_ganja()
 
 

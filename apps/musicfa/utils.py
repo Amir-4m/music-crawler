@@ -97,6 +97,12 @@ def check_running(function_name):
 
 
 def stop_duplicate_task(func):
+    """
+    By checking the PID file if file is exist will return False and do not execute (it's mean `func` is already
+     running), will return True if file does not exist and will create the PID file.
+    :param func: function.__name__ will be used to stop duplicate tasks.
+    :return: True or False
+    """
     def inner_function():
         file_lock = check_running(func.__name__)
         if not file_lock:
@@ -111,17 +117,19 @@ def stop_duplicate_task(func):
 
 
 class WordPressClient:
-    base_url = 'https://test.delnava.com/wp-json/wp/v2/'
+    base_url = 'https://test.delnava.com/wp-json/'
     urls = {
-        'single_music': 'music/',
-        'media': 'media/',
+        'single_music': 'wp/v2/music/',
+        'media': 'wp/v2/media/',
         'acf_fields': 'acf/v3/music/'
     }
 
     def __init__(self, instance):
         """
+        This class will be used to create post (single music and album) at word press and update ACF fields
+         (custom fields).
         Args:
-            instance: Instance is CMusic object.
+            instance: Instance is CMusic or Album object.
         """
         self.instance = instance
 
@@ -159,7 +167,7 @@ class WordPressClient:
             json=payload_data,
             headers={'Content-Type': 'application/json'}
         )
-        print(req.content)
+        print(req.status_code, req.json())
         if req.ok:
             post_wp_id = req.json()['id']
             logger.info(f'>> Music posted successfully! wordpress id: {post_wp_id}')
@@ -186,7 +194,8 @@ class WordPressClient:
 
     def update_acf_fields(self, fields):
         req = self.post_request(
-            self.urls['acf_fields'],
+            f"{self.urls['acf_fields']}{self.instance.wp_post_id}/",
+            method='put',
             json=fields,
             headers={'Content-Type': 'application/json'}
         )
