@@ -27,6 +27,5 @@ urlpatterns = [
     path('nicmusic/export-songs/', export_nicmusic_songs, name="export_nicmusic_songs"),
 ]
 
-if settings.DEBUG:
+if settings.DEVEL:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
