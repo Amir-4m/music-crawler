@@ -24,7 +24,7 @@ class UploadTo:
         path = self.path_creator(instance) or f'{filename}'
         path = path.replace(' ', '')
         logger.info(f'New file saved in "{path}"')
-        return path
+        return f'crawled/{path}'
 
     def path_creator(self, instance):
         """
