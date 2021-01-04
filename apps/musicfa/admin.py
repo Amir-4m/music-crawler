@@ -38,10 +38,12 @@ class CMusicAdmin(admin.ModelAdmin):
     actions = ['send_to_word_press']
     list_display = ("song_name_en", 'artist', "title", "post_type", 'is_downloaded')
     list_filter = ['is_downloaded', 'post_type']
-    readonly_fields = ['album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date']
+    readonly_fields = [
+        'album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date', 'album', 'post_type'
+    ]
     ordering = ['-id']
     fieldsets = (
-        ('Music', {'fields': ('title', 'song_name_fa', 'song_name_en', 'artist', 'lyrics', 'status')}),
+        ('Music', {'fields': ('title', 'song_name_fa', 'song_name_en', 'artist', 'lyrics', 'status', 'album')}),
         (
             'Extra Data', {
                 'classes': ('collapse',), 'fields': (
@@ -73,8 +75,13 @@ class CMusicAdmin(admin.ModelAdmin):
 
     def change_view(self, request, object_id, **kwargs):
         if '_sned_to_wp' in request.POST:
-            create_single_music_post_task.apply_async(args=([object_id],))
-        messages.info(request, _('creating new post on wordpress'))
+            instance = self.get_object(request, object_id)
+            if instance.post_type == CMusic.SINGLE_TYPE:
+                create_single_music_post_task.apply_async(args=(object_id,))
+                messages.info(request, _('creating new single music on wordpress'))
+            else:
+                create_album_post_task.apply_async(args=(instance.album_id,))
+                messages.info(request, _('creating new album on wordpress'))
         return super().change_view(request, object_id, **kwargs)
 
     def get_thumbnail(self, obj):
@@ -86,7 +93,7 @@ class CMusicAdmin(admin.ModelAdmin):
     get_thumbnail.short_description = _('current thumbnail')
 
     def send_to_word_press(self, request, queryset):
-        create_single_music_post_task.apply_async(args=([q.id for q in queryset],))
+        create_single_music_post_task.apply_async(args=tuple([q.id for q in queryset]))
         messages.info(request, _('selected musics created at wordpress!'))
 
 

@@ -1,7 +1,5 @@
 import json
 import os
-import linecache
-import sys
 import logging
 from urllib.parse import unquote
 
@@ -10,7 +8,6 @@ from django.core.cache import cache
 
 import requests
 from pid import PidFile
-from requests.auth import HTTPBasicAuth
 
 logger = logging.getLogger(__file__)
 
@@ -125,9 +122,10 @@ class WordPressClient:
             instance: Instance is CMusic or Album object.
         """
         logger.info(f'Sending {instance} to wordpress - WP URL: {self.base_url}')
+        self.thumbnail_download_error = False
         self.instance = instance
         self.token = cache.get(self.token_cache_key) or self.get_token()
-        self.validate_token(self.token)
+        self.validate_token()
 
     def post_request(self, url, method='post', json_content=None, auth=None, **kwargs):
         headers = {}
@@ -137,14 +135,16 @@ class WordPressClient:
             headers.update({'Authorization': f"Bearer {self.token}"})
 
         kwargs.update({'headers': headers})
-        return requests.request(
-            method,
-            f"{self.base_url + url}",
-            **kwargs
-        )
+        url = f"{self.base_url + url}"
+        try:
+            r = requests.request(method, url, **kwargs)
+            r.raise_for_status()
+            return r
+        except requests.exceptions.RequestException:
+            logger.exception(f"wordpress client request failed URL: {url}")
 
     def get_token(self):
-        logger.info(' getting new token')
+        logger.info('getting new token')
         req = self.post_request(
             self.urls['token'],
             json=dict(username=settings.WP_USER, password=settings.WP_PASS),
@@ -157,7 +157,7 @@ class WordPressClient:
         else:
             logger.critical(f'Getting token failed. user: {settings.WP_USER} pass: {settings.WP_PASS}')
 
-    def validate_token(self, token):
+    def validate_token(self):
         req = self.post_request(
             self.urls['validate-token'],
             auth=True,
@@ -166,6 +166,7 @@ class WordPressClient:
             logger.info(f'token is valid.')
         else:
             logger.error(f'token is not valid')
+            self.token = self.get_token()
 
     def create_single_music(self):
         """
@@ -192,6 +193,7 @@ class WordPressClient:
             auth=True,
             json=payload_data,
         )
+
         if req.ok:
             post_wp_id = req.json()['id']
             logger.info(f'Music posted successfully! wordpress id: {post_wp_id}')
@@ -199,7 +201,6 @@ class WordPressClient:
                 post_wp_id,
                 CMusic.APPROVED_STATUS
             )
-
             # ACF fields of single music
             fields = dict(
                 fields=dict(
@@ -208,10 +209,20 @@ class WordPressClient:
                     music_name_persian=self.instance.song_name_fa,
                     music_name_english=self.instance.song_name_en,
                 ))
+            # 128 link
             if self.instance.file_mp3_128:
-                fields['fields']['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128)
+                fields['fields']['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128.url)
+            else:
+                logger.info(f'file_mp3_128 field on [{self.instance}] is empty.')
+                fields['fields']['link_128'] = self.download_music_file(self.instance.link_mp3_128, 'link_mp3_128', self.instance)
+
+            # 320 link
             if self.instance.file_mp3_320:
-                fields['fields']['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320)
+                fields['fields']['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320.url)
+            else:
+                logger.info(f'file_mp3_320 field on [{self.instance}] is empty.')
+                fields['fields']['link_320'] = self.download_music_file(self.instance.link_mp3_128, 'file_mp3_320', self.instance)
+
             self.update_acf_fields(fields, f"{self.urls['acf_fields_music']}{self.instance.wp_post_id}/")
         else:
             logger.error(f'Create Music post failed! CMusic id: {self.instance.id} status code: {req.status_code}')
@@ -227,7 +238,7 @@ class WordPressClient:
         media_id = self.create_media()
 
         musics_link = "".join([
-            f"<a href={music.get_absolute_url_320()}>{music.song_name_fa or music.song_name_en}</a></br>"
+            f"<a href={music.get_absolute_url_320() if music.get_absolute_url_320() else self.download_music_file(music.link_mp3_320, 'file_mp3_320', music)}>{music.song_name_fa or music.song_name_en}</a></br>"
             for music in CMusic.objects.filter(album=self.instance)
         ])  # track's link
 
@@ -261,32 +272,63 @@ class WordPressClient:
                     artist_name_english=self.instance.artist.name_en,
                     music_name_persian=first_music.song_name_fa,
                     music_name_english=first_music.song_name_en,
-                    album_link=musics_link  # TODO fix the field
+                    album_link=musics_link
                 ))
-
             self.update_acf_fields(fields, f"{self.urls['acf_fields_album']}{self.instance.wp_post_id}/")
 
     def create_media(self):
-        """
-        Create a new Media object in Wordpress site to assign it to Wordpress Post.
+        from .crawler import Crawler
 
+        """
+        Create a new Media object in Wordpress site to assign it to Wordpress Post as a `featured_media`.
+        this media will create with thumbnail_file field at CMusic or Album if this field is empty
+        this method will download it.
         Returns: media's id of uploaded image to wordpress site
         """
-        file_name = self.instance.file_thumbnail.name.split('/')[-1]
-        payload_data = dict(status='draft')
-        req = self.post_request(
-            self.urls['media'],
-            auth=True,
-            data={'file': file_name, 'data': json.dumps(payload_data)},
-            files={'file': (
-                file_name,
-                open(self.instance.file_thumbnail.path, 'rb'),
-                f'image/{file_name.split(".")[-1]}',
-                {'Expires': '0'}
-            )},
-        )
-        if req.ok:
-            return req.json()['id']
+        if self.instance.file_thumbnail:
+            file_name = self.instance.file_thumbnail.name.split('/')[-1]
+            payload_data = dict(status='draft')
+            req = self.post_request(
+                self.urls['media'],
+                auth=True,
+                data={'file': file_name, 'data': json.dumps(payload_data)},
+                files={'file': (
+                    file_name,
+                    open(self.instance.file_thumbnail.path, 'rb'),
+                    f'image/{file_name.split(".")[-1]}',
+                    {'Expires': '0'}
+                )},
+            )
+            if req.ok:
+                return req.json()['id']
+            else:
+                logger.error(f'Creating media failed. [{self.instance}] status code: {req.status_code} response: {req.json()}')
+        else:
+            logger.error(f'Creating media failed. [{self.instance}] has no file associated with it')
+            logger.info(f'Downloading thumbnail file... [{self.instance}] to send to wordpress')
+
+            # downloading the thumbnail
+            self.instance.file_thumbnail = Crawler.download_content(self.instance.link_thumbnail)
+            try:
+                self.instance.save()
+            except Exception:
+                self.thumbnail_download_error = True  # adding this to break the possible loop
+                logger.exception('Downloading thumbnail file failed')
+            else:
+                if not self.thumbnail_download_error:
+                    return self.create_media()
+
+    def download_music_file(self, url, field_name, instance):
+        from .crawler import Crawler
+        
+        logger.info('')
+        file = Crawler.download_content(url)
+        setattr(instance, field_name, file)
+        try:
+            instance.save()
+            return getattr(instance, field_name)
+        except Exception:
+            logger.exception(f'Downloading music file failed {instance}')
 
     def update_instance(self, wp_id, status, **kwargs):
         self.instance.wp_post_id = wp_id

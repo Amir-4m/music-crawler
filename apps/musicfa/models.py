@@ -56,7 +56,7 @@ class Album(models.Model):
 
     status = models.CharField(_('status'), max_length=8, choices=STATUS_CHOICES, default=VOID_STATUS)
     wp_category_id = models.PositiveSmallIntegerField(_('category'), blank=True)
-    wp_post_id = models.PositiveIntegerField(_('wordpress post id'), blank=True, null=True)
+    wp_post_id = models.PositiveIntegerField(_('wordpress post id'), blank=True)
 
     def __str__(self):
         return f"{self.title} {self.id}"
@@ -98,7 +98,7 @@ class CMusic(models.Model):
 
     page_url = models.TextField(_("post url"), blank=True)
     post_type = models.CharField(_("post type"), max_length=20, choices=POST_TYPE_CHOICE)
-    site_id = models.CharField(_('album site id'), max_length=50, unique=True)
+    site_id = models.CharField(_('album site id'), max_length=60, unique=True)
 
     link_mp3_128 = models.TextField(_("quality of 128 mp3 link"), blank=True)
     link_mp3_320 = models.TextField(_("quality of 320 mp3 link"), blank=True)
@@ -117,7 +117,7 @@ class CMusic(models.Model):
 
     status = models.CharField(_('status'), max_length=8, choices=STATUS_CHOICES, default=VOID_STATUS)
     wp_category_id = models.PositiveSmallIntegerField(_('category'), blank=True)
-    wp_post_id = models.PositiveIntegerField(_('wordpress post id'), blank=True, null=True)
+    wp_post_id = models.PositiveIntegerField(_('wordpress post id'), blank=True)
 
     def __str__(self):
         return f"{self.title} {self.id}"

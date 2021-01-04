@@ -13,7 +13,7 @@ from .models import CMusic, Album
 def create_single_music_post_task(*object_ids):
     """
     Creating a post (single music) on Word press from CMusic object
-    :param object_ids: list of CMusic's id object
+    :param object_ids: tuple of CMusic's id object
     :return: None
     """
     for q in CMusic.objects.filter(id__in=object_ids):
@@ -24,7 +24,7 @@ def create_single_music_post_task(*object_ids):
 def create_album_post_task(*object_ids):
     """
     Creating a post (album) on Word press from Album and CMusic object
-    :param object_ids: list of Album's id object
+    :param object_ids: tuple of Album's id object
     :return: None
     """
     for q in Album.objects.filter(id__in=object_ids):

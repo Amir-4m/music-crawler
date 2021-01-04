@@ -10,7 +10,6 @@ from bs4 import BeautifulSoup
 from khayyam import JalaliDate
 
 from .models import CMusic, Album, Artist
-from .utils import per_num_to_eng, url_join
 
 months = ["ژانویه", "فوریه", "مارس", "آوریل", "می", "ژوئن", "جولای", "آگوست", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"]
 jalali_months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
@@ -76,7 +75,8 @@ class Crawler:
         ).order_by('-id'):
             yield c
 
-    def download_content(self, url):
+    @staticmethod
+    def download_content(url):
         """
         :param url: URL of file to download the it.
         :return: File to save in CMusic object.
@@ -84,8 +84,6 @@ class Crawler:
         try:
             logger.info(f'Starting Download the URL: {url}')
             r = requests.get(url, allow_redirects=False)
-            print(r.url)
-            print(r.status_code)
         except Exception as e:
             logger.exception(f'Downloading file failed. {e}')
             return None
@@ -275,6 +273,7 @@ class NicMusicCrawler(Crawler):
 
 
 class Ganja2MusicCrawler(Crawler):
+
     category_id = 0
     website_name = 'ganja2music'
     base_url = 'https://www.ganja2music.com/'
@@ -297,11 +296,15 @@ class Ganja2MusicCrawler(Crawler):
         return link_128, link_320
 
     def get_thumbnail(self, soup):
+        from .utils import url_join
+
         # Thumbnail
         link_thumbnail = soup.find('div', class_='insidercover').find('a').attrs['href']
         return url_join(self.base_url, link_thumbnail[1:])
 
     def get_content_section_info(self, soup):
+        from .utils import per_num_to_eng
+
         # Name of Music, Artist and Publish Date
         content_section = soup.find('div', class_='content')
         song_name_en = content_section.find('h2').get_text()
