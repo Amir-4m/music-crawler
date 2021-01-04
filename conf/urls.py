@@ -22,10 +22,11 @@ from apps.musicfa.views import export_musicfa_songs, export_nicmusic_songs
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('7b86dbadmin/', admin.site.urls),
     path('musicfa/export-songs/', export_musicfa_songs, name="export_musicfa_songs"),
     path('nicmusic/export-songs/', export_nicmusic_songs, name="export_nicmusic_songs"),
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

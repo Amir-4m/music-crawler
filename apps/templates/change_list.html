@@ -1,17 +1,28 @@
 {% extends 'admin/change_list.html' %}
+{% load static %}
 
 {% block content %}
     <div>
         <ol>
             <li>
-                <a href="{% url 'admin:start-crawl' 'collect_musics_nic' %}">start crawl on nicmusic.net</a>
+                {% if crawl_status_nic %}
+                    <span>Crawling nicmusic.net</span>
+                    <img src="{% static  'admin/img/icon-yes.svg' %}" alt="True">
+                {% else %}
+                    <a href="{% url 'admin:start-crawl' 'collect_musics_nic' %}">start crawl on nicmusic.net</a>
+                    <span>running:</span><img src="{% static  'admin/img/icon-no.svg' %}" alt="False">
+                {% endif %}
             </li>
-
             <li>
-                <a href="{% url 'admin:start-crawl' 'collect_musics_ganja' %}">start crawl on ganja2music.com</a>
+                {% if crawl_status_ganja %}
+                    <span>Crawling ganja2music.com</span>
+                    <img src="{% static  'admin/img/icon-yes.svg' %}" alt="True">
+                {% else %}
+                    <a href="{% url 'admin:start-crawl' 'collect_musics_ganja' %}">start crawl on ganja2music.com</a>
+                    <span>running:</span><img src="{% static  'admin/img/icon-no.svg' %}" alt="False">
+                {% endif %}
             </li>
         </ol>
-
     </div>
     {{ block.super }}
 {% endblock %}

@@ -39,6 +39,10 @@ INSTALLED_APPS = [
 
     # apps
     'apps.musicfa',
+
+    # third parties
+    'django_better_admin_arrayfield',
+    'ckeditor'
 ]
 
 MIDDLEWARE = [
@@ -129,3 +133,28 @@ STATIC_ROOT = BASE_DIR / 'static'
 # Media
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# CKeditor Config
+CKEDITOR_CONFIGS = {
+    'default': {
+        'toolbar': 'full',
+        'height': 600,
+        'width': 850,
+    },
+}
+
+# Cache
+CACHES = {
+    'default': {
+        'BACKEND': config('CACHE_BACKEND', default='django.core.cache.backends.locmem.LocMemCache', cast=str),
+        'LOCATION': config('CACHE_HOST', default='', cast=str),
+        'KEY_PREFIX': config('CACHE_PREFIX', default='GENERIC_MUSIC', cast=str),
+    },
+}
+
+# Wordpress Auth
+WP_USER = config('WP_USER', cast=str)
+WP_PASS = config('WP_PASS', cast=str)
+WP_BASE_URL = config('WP_BASE_URL', cast=str)
+
+SITE_DOMAIN = config('SITE_DOMAIN')

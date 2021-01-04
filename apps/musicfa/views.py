@@ -1,5 +1,3 @@
-from importlib import import_module
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect
@@ -7,7 +5,8 @@ from django.shortcuts import render
 from django.urls import reverse_lazy
 
 from .models import CMusic
-from .tasks import collect_files_nic
+from .tasks import run_crawl
+
 
 @login_required
 def export_musicfa_songs(request):
@@ -36,9 +35,7 @@ def start_new_crawl(request, site_name):
     """
     :param request: Django request object
     :param site_name: name of the function that start crawling. etc collect_musics_ganja
-    :return:
     """
-    module = import_module('apps.musicfa.tasks')
-    getattr(module, site_name).delay()  # Starting Crawl
+    run_crawl.apply_async(args=(site_name,))
     messages.info(request, 'Starting crawl...')
     return HttpResponseRedirect(reverse_lazy('admin:index'))

@@ -20,4 +20,11 @@ CELERY_PASS = 'guest'
 CELERY_HOST = '127.0.0.1'
 CELERY_PORT = 5672
 CELERY_VHOST = ''
+
+# Wordpress auth
+WP_USER = ''
+WP_PASS = ''
+WP_BASE_URL = 'https://test.delnava.com/wp-json/'
+
+SITE_DOMAIN = 'http://localhost/'
 ```
