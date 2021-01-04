@@ -51,7 +51,6 @@ coverage.xml
 *.pot
 
 # Django stuff:
-/logs
 *.log
 media/
 static/*
