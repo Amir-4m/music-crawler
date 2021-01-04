@@ -26,5 +26,5 @@ WP_USER = ''
 WP_PASS = ''
 WP_BASE_URL = 'https://test.delnava.com/wp-json/'
 
-SITE_DOMAIN = 'http://localhost/'
+SITE_DOMAIN = 'http://localhost'
 ```

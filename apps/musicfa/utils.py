@@ -214,14 +214,18 @@ class WordPressClient:
                 fields['fields']['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128.url)
             else:
                 logger.info(f'file_mp3_128 field on [{self.instance}] is empty.')
-                fields['fields']['link_128'] = self.download_music_file(self.instance.link_mp3_128, 'link_mp3_128', self.instance)
+                fields['fields']['link_128'] = self.download_music_file(
+                    self.instance.link_mp3_128, 'link_mp3_128', self.instance
+                ).get_absolute_url_128()
 
             # 320 link
             if self.instance.file_mp3_320:
                 fields['fields']['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320.url)
             else:
                 logger.info(f'file_mp3_320 field on [{self.instance}] is empty.')
-                fields['fields']['link_320'] = self.download_music_file(self.instance.link_mp3_128, 'file_mp3_320', self.instance)
+                fields['fields']['link_320'] = self.download_music_file(
+                    self.instance.link_mp3_128, 'file_mp3_320', self.instance
+                ).get_absolute_url_320()
 
             self.update_acf_fields(fields, f"{self.urls['acf_fields_music']}{self.instance.wp_post_id}/")
         else:
@@ -238,7 +242,8 @@ class WordPressClient:
         media_id = self.create_media()
 
         musics_link = "".join([
-            f"<a href={music.get_absolute_url_320() if music.get_absolute_url_320() else self.download_music_file(music.link_mp3_320, 'file_mp3_320', music)}>{music.song_name_fa or music.song_name_en}</a></br>"
+            f"<a href={music.get_absolute_url_320() if music.get_absolute_url_320() else self.download_music_file(music.link_mp3_320, 'file_mp3_320', music).get_absolute_url_320()}>"
+            f"{music.song_name_fa or music.song_name_en}</a></br>"
             for music in CMusic.objects.filter(album=self.instance)
         ])  # track's link
 
@@ -326,7 +331,7 @@ class WordPressClient:
         setattr(instance, field_name, file)
         try:
             instance.save()
-            return getattr(instance, field_name)
+            return instance
         except Exception:
             logger.exception(f'Downloading music file failed {instance}')
 

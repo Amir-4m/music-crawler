@@ -36,7 +36,7 @@ class CMusicAdmin(admin.ModelAdmin):
     change_form_template = 'changes.html'
     change_list_template = 'change_list.html'
     actions = ['send_to_word_press']
-    list_display = ("song_name_en", 'artist', "title", "post_type", 'is_downloaded')
+    list_display = ("song_name_en", 'artist', "title", "post_type", 'status', 'is_downloaded')
     list_filter = ['is_downloaded', 'post_type']
     readonly_fields = [
         'album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date', 'album', 'post_type'
