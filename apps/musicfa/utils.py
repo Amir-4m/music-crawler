@@ -26,7 +26,7 @@ class UploadTo:
     def __call__(self, instance, filename):
         path = self.path_creator(instance) or f'{filename}'
         path = path.replace(' ', '')
-        logger.info(f'>> New file saved in "{path}"')
+        logger.info(f'New file saved in "{path}"')
         return path
 
     def path_creator(self, instance):
@@ -52,20 +52,6 @@ class UploadTo:
 
     def deconstruct(self):
         return 'apps.musicfa.utils.UploadTo', [self.field_name], {}
-
-
-def PrintException():
-    """
-    Print the exception cause and errors
-    :return:
-    """
-    exc_type, exc_obj, tb = sys.exc_info()
-    f = tb.tb_frame
-    lineno = tb.tb_lineno
-    filename = f.f_code.co_filename
-    linecache.checkcache(filename)
-    line = linecache.getline(filename, lineno, f.f_globals)
-    logger.error('>> EXCEPTION IN ({}, LINE {} "{}"):\n {}'.format(filename, lineno, line.strip(), exc_obj))
 
 
 def url_join(base_url, path):
@@ -108,7 +94,7 @@ def stop_duplicate_task(func):
     def inner_function():
         file_lock = check_running(func.__name__)
         if not file_lock:
-            logger.info(f">> [Another {func.__name__} is already running]")
+            logger.info(f" [Another {func.__name__} is already running]")
             return False
         func()
         if file_lock:
@@ -119,7 +105,7 @@ def stop_duplicate_task(func):
 
 
 class WordPressClient:
-    base_url = 'https://test.delnava.com/wp-json/'
+    base_url = settings.WP_BASE_URL
     token_cache_key = 'wordpress_auth_token'
     urls = {
         'token': 'jwt-auth/v1/token',
@@ -138,6 +124,7 @@ class WordPressClient:
         Args:
             instance: Instance is CMusic or Album object.
         """
+        logger.info(f'Sending {instance} to wordpress - WP URL: {self.base_url}')
         self.instance = instance
         self.token = cache.get(self.token_cache_key) or self.get_token()
         self.validate_token(self.token)
@@ -157,18 +144,18 @@ class WordPressClient:
         )
 
     def get_token(self):
-        logger.info('>> getting new token')
+        logger.info(' getting new token')
         req = self.post_request(
             self.urls['token'],
             json=dict(username=settings.WP_USER, password=settings.WP_PASS),
         )
         if req.ok:
             token = req.json()['data']['token']
-            logger.info(f'>> new token successfully added token: {token}')
+            logger.info(f'new token successfully added token: {token}')
             cache.set(self.token_cache_key, token, 604800)  # 7 days default expire time
             return token
         else:
-            logger.critical(f'>> Getting token failed. user: {settings.WP_USER} pass: {settings.WP_PASS}')
+            logger.critical(f'Getting token failed. user: {settings.WP_USER} pass: {settings.WP_PASS}')
 
     def validate_token(self, token):
         req = self.post_request(
@@ -176,9 +163,9 @@ class WordPressClient:
             auth=True,
         )
         if req.ok:
-            logger.info(f'>> token is valid.')
+            logger.info(f'token is valid.')
         else:
-            logger.error(f'>> token is not valid')
+            logger.error(f'token is not valid')
 
     def create_single_music(self):
         """
@@ -207,7 +194,7 @@ class WordPressClient:
         )
         if req.ok:
             post_wp_id = req.json()['id']
-            logger.info(f'>> Music posted successfully! wordpress id: {post_wp_id}')
+            logger.info(f'Music posted successfully! wordpress id: {post_wp_id}')
             self.update_instance(
                 post_wp_id,
                 CMusic.APPROVED_STATUS
@@ -227,7 +214,7 @@ class WordPressClient:
                 fields['fields']['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320)
             self.update_acf_fields(fields, f"{self.urls['acf_fields_music']}{self.instance.wp_post_id}/")
         else:
-            logger.error(f'>> Create Music post failed! CMusic id: {self.instance.id} status code: {req.status_code}')
+            logger.error(f'Create Music post failed! CMusic id: {self.instance.id} status code: {req.status_code}')
 
     def create_album(self):
         """
@@ -315,7 +302,7 @@ class WordPressClient:
             json=fields,
         )
         if req.ok:
-            logger.info(f'>> ACF field updated successfully wordpress id: {self.instance.wp_post_id}')
+            logger.info(f'ACF field updated successfully wordpress id: {self.instance.wp_post_id}')
         else:
             logger.error(
-                f'>> ACF Field update failed! wordpress id: {self.instance.wp_post_id}, status code: {req.status_code}')
+                f'ACF Field update failed! wordpress id: {self.instance.wp_post_id}, status code: {req.status_code}')

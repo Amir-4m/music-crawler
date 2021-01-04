@@ -23,26 +23,26 @@ class Crawler:
     website_name = ''
 
     def __init__(self):
-        logger.info(f'>> Starting... crawler for {self.website_name}')
+        logger.info(f'Starting... crawler for {self.website_name}')
 
     def collect_links(self):
         """
         Collecting the all links to get data from it.
         :return: a single link to detail of post (one music).
         """
-        logger.info(f'>> {self.website_name} collect links starting...')
+        logger.info(f'{self.website_name} collect links starting...')
 
     def collect_musics(self):
         """
         Collecting the detail of music.
         """
-        logger.info(f'>> {self.website_name} collect musics starting...')
+        logger.info(f'{self.website_name} collect musics starting...')
 
     def collect_files(self):
         """
         Downloading the data of crawled musics that is_downloaded field is False.
         """
-        logger.info(f'>> Collecting the files of CMusic {self.website_name}.')
+        logger.info(f'Collecting the files of CMusic {self.website_name}.')
 
     def make_request(self, url, method='get', **kwargs):
         try:
@@ -51,9 +51,9 @@ class Crawler:
             if req.ok:
                 return req
             else:
-                logger.error(f'>> Make request failed! URL: {url} status: {req.status_code}')
+                logger.error(f'Make request failed! URL: {url} status: {req.status_code}')
         except requests.HTTPError:
-            logger.error(f">> Make request failed! HTTP ERROR! URL: {url}")
+            logger.error(f"Make request failed! HTTP ERROR! URL: {url}")
             raise
 
     def get_crawled_musics(self):
@@ -61,7 +61,7 @@ class Crawler:
         Getting the CMusic that file of them is not downloaded.
         :return: A queryset of CMusic.
         """
-        logger.info(f'>> Getting the crawled music to download the files...')
+        logger.info(f'Getting the crawled music to download the files...')
         for c in CMusic.objects.filter(
                 is_downloaded=False,
                 page_url__icontains=self.website_name
@@ -69,7 +69,7 @@ class Crawler:
             yield c
 
     def get_crawler_album(self):
-        logger.info(f'>> Getting the crawled album to download the files...')
+        logger.info(f'Getting the crawled album to download the files...')
         for c in Album.objects.filter(
                 is_downloaded=False,
                 page_url__icontains=self.website_name
@@ -82,12 +82,12 @@ class Crawler:
         :return: File to save in CMusic object.
         """
         try:
-            logger.info(f'>> Starting Download the URL: {url}')
+            logger.info(f'Starting Download the URL: {url}')
             r = requests.get(url, allow_redirects=False)
             print(r.url)
             print(r.status_code)
         except Exception as e:
-            logger.exception(f'>> Downloading file failed. {e}')
+            logger.exception(f'Downloading file failed. {e}')
             return None
         img_temp = NamedTemporaryFile(delete=True)
         img_temp.write(r.content)
@@ -117,12 +117,12 @@ class Crawler:
                 **kwargs
             )
             if created:
-                logger.info(f'>> New {c_music.post_type} Music Created id:{c_music.id} album id: {c_music.album_id}')
+                logger.info(f'New {c_music.post_type} Music Created id:{c_music.id} album id: {c_music.album_id}')
             else:
                 logger.info(
-                    f'>> Duplicate {c_music.post_type} Music found id:{c_music.id} album id: {c_music.album_id}')
+                    f'Duplicate {c_music.post_type} Music found id:{c_music.id} album id: {c_music.album_id}')
         except Exception as e:
-            logger.exception(">> Creating music failed ")
+            logger.exception("Creating music failed ")
 
     def create_album(self, site_id, defaults):
         try:
@@ -131,12 +131,12 @@ class Crawler:
                 defaults=defaults
             )
         except Exception as e:
-            logger.exception(">> Creating album failed ")
+            logger.exception("Creating album failed ")
             return
         if created:
-            logger.info(f'>> New Album created id: {album.id}')
+            logger.info(f'New Album created id: {album.id}')
         else:
-            logger.info(f'>> Duplicate Album found id: {album.id}')
+            logger.info(f'Duplicate Album found id: {album.id}')
         return album
 
     def create_artist(self, name_en, name_fa):
@@ -146,12 +146,12 @@ class Crawler:
                 defaults=dict(name_fa=name_fa, name_en=name_en, correct_names=[name_fa, name_en])
             )
         except Exception as e:
-            logger.exception(">> Creating artist failed ")
+            logger.exception("Creating artist failed ")
             return
         if created:
-            logger.info(f'>> New artist created id: {artist.id}')
+            logger.info(f'New artist created id: {artist.id}')
         else:
-            logger.info(f'>> Duplicate artist found id: {artist.id}')
+            logger.info(f'Duplicate artist found id: {artist.id}')
         return artist
 
 
@@ -167,7 +167,7 @@ class NicMusicCrawler(Crawler):
             try:
                 c.save()
             except Exception as e:
-                logger.exception(f'>> collect files failed CMusic id: {c.id}')
+                logger.exception(f'collect files failed CMusic id: {c.id}')
 
     def collect_links(self):
         super().collect_links()
@@ -182,7 +182,7 @@ class NicMusicCrawler(Crawler):
                 for post in soup.find_all("a", class_="show-more"):
                     yield post.attrs["href"]
         except Exception as e:
-            logger.exception(f">> Collecting links failed {self.website_name}")
+            logger.exception(f"Collecting links failed {self.website_name}")
 
     def collect_musics(self):
         super().collect_musics()
@@ -266,7 +266,7 @@ class NicMusicCrawler(Crawler):
                     )
                     self.create_music(**kwargs)
             except Exception as e:
-                logger.exception(f'>> 1 collect music {self.website_name}')
+                logger.exception(f'1 collect music {self.website_name}')
                 continue
 
     def get_site_id(self, soup):
@@ -361,7 +361,7 @@ class Ganja2MusicCrawler(Crawler):
                 )
                 self.create_music(**kwargs)  # get or create CMusic
             except Exception as e:
-                logger.exception(f'>> Collect Single Music failed')
+                logger.exception(f'Collect Single Music failed')
                 continue
 
     def collect_link_albums(self):
@@ -415,7 +415,7 @@ class Ganja2MusicCrawler(Crawler):
                     )
                     self.create_music(**kwargs)
             except Exception as e:
-                logger.exception(f">> Creating album failed URL {post_page_url}")
+                logger.exception(f"Creating album failed URL {post_page_url}")
                 continue
 
     def detect_new_post_in_page(self, main_page_url, soup):
@@ -427,7 +427,7 @@ class Ganja2MusicCrawler(Crawler):
         return False
 
     def collect_post_links(self, main_page_url):
-        logger.info(f'>> Collect single music links {self.website_name}')
+        logger.info(f'Collect single music links {self.website_name}')
         try:
             # Getting the first page musics
             first_page = self.make_request(f"{self.base_url}{main_page_url}")
@@ -437,7 +437,7 @@ class Ganja2MusicCrawler(Crawler):
                 for post_detail in soup.find_all('div', class_='postbox'):
                     yield post_detail.find('a', class_='iaebox').attrs['href']
         except Exception as e:
-            logger.exception(f'>> Getting first page failed')
+            logger.exception(f'Getting first page failed')
             return
         # Crawling the next pages
         while next_page_link:
@@ -449,12 +449,12 @@ class Ganja2MusicCrawler(Crawler):
                         link = post_detail.find('a', class_='iaebox').attrs['href']
                         yield link
                 else:
-                    logger.info(f'>> Skipping this page URL: {next_page_link}')
+                    logger.info(f'Skipping this page URL: {next_page_link}')
                 next_page_link = soup.find('div', class_='pagenumbers').find('a', class_="next page-numbers").attrs[
                     'href']
-                logger.info(f'>>> Next Page URL: {next_page_link}')
+                logger.info(f'> Next Page URL: {next_page_link}')
             except Exception as e:
-                logger.exception(f'>> Navigating pages failed current page {next_page_link}')
+                logger.exception(f'Navigating pages failed current page {next_page_link}')
                 continue
 
     def collect_files(self):
@@ -473,7 +473,7 @@ class Ganja2MusicCrawler(Crawler):
             try:
                 c.save()
             except Exception as e:
-                logger.exception(f'>> collect files failed CMusic id: {c.id}')
+                logger.exception(f'collect files failed CMusic id: {c.id}')
 
     def collect_album_files(self):
         for c in self.get_crawler_album():
@@ -483,5 +483,5 @@ class Ganja2MusicCrawler(Crawler):
             try:
                 c.save()
             except Exception as e:
-                logger.exception(f'>> collect files failed CMusic id: {c.id}')
+                logger.exception(f'collect files failed CMusic id: {c.id}')
 

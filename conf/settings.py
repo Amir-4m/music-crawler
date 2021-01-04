@@ -155,5 +155,6 @@ CACHES = {
 # Wordpress Auth
 WP_USER = config('WP_USER', cast=str)
 WP_PASS = config('WP_PASS', cast=str)
+WP_BASE_URL = config('WP_BASE_URL', cast=str)
 
 SITE_DOMAIN = config('SITE_DOMAIN')
