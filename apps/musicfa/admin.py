@@ -36,7 +36,7 @@ class CMusicAdmin(admin.ModelAdmin):
     change_form_template = 'changes.html'
     change_list_template = 'change_list.html'
     actions = ['send_to_word_press']
-    list_display = ("song_name_en", 'artist', "title", "post_type", 'status', 'is_downloaded')
+    list_display = ("get_name", 'artist', "title", "post_type", 'status', 'is_downloaded')
     list_filter = ['is_downloaded', 'post_type']
     search_fields = ['artist_id', 'song_name_fa', 'song_name_en', 'album_id']
     readonly_fields = [
@@ -97,11 +97,16 @@ class CMusicAdmin(admin.ModelAdmin):
         create_single_music_post_task.apply_async(args=tuple([q.id for q in queryset]))
         messages.info(request, _('selected musics created at wordpress!'))
 
+    # custom field
+    def get_name(self, obj):
+        return obj.name
+    get_name.short_description = _('name')
+
 
 @admin.register(Album)
 class AlbumAdmin(admin.ModelAdmin):
     inlines = [CMusicInline]
-    list_display = ("album_name_en", 'artist', 'status')
+    list_display = ("get_name", 'artist', 'status')
     search_fields = ['album_name_en', 'album_name_fa', 'title']
     list_filter = ['is_downloaded']
     ordering = ['-id']
@@ -129,12 +134,20 @@ class AlbumAdmin(admin.ModelAdmin):
         create_album_post_task.apply_async(args=([q.id for q in queryset]))
         messages.info(request, _('selected albums created at wordpress!'))
 
+    def get_name(self, obj):
+        return obj.name
+    get_name.short_description = _('name')
+
 
 @admin.register(Artist)
 class ArtistAdmin(admin.ModelAdmin, DynamicArrayMixin):
-    list_display = ['id', 'name_en', 'name_fa']
+    list_display = ['get_name', 'name_en', 'name_fa']
     search_fields = ['name_en', 'name_fa']
     ordering = ['-id']
+
+    def get_name(self, obj):
+        return obj.name
+    get_name.short_description = _('name')
 
 
 admin.site.empty_value_display = "Unknown"

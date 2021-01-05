@@ -24,11 +24,11 @@ class UploadTo:
         try:
             path = self.path_creator(instance) or f'{filename}'
         except Exception as e:
-            logger.error(f'[creating file path failed] - [obj: {instance}]')
+            logger.error(f'[creating file path failed]-[exc: {e}]-[obj id: {instance.id}]-[obj type: {type(instance)}]-[file: {filename}]')
         else:
             path = path.replace(' ', '')
             path = f'crawled/{path}'
-            logger.debug(f'[saving new file "{path}"] - [obj: {instance}]')
+            logger.debug(f'[saving new file "{path}"]-[obj id: {instance.id}]-[obj type: {type(instance)}]-[file: {filename}]')
             return path
 
     def path_creator(self, instance):
@@ -126,7 +126,7 @@ class WordPressClient:
         Args:
             instance: Instance is CMusic or Album object.
         """
-        logger.debug(f'[sending {instance} to wordpress] - [WP_URL: {self.base_url}]')
+        logger.debug(f'[sending {type(instance)} to wordpress]-[WP_URL: {self.base_url}]')
         self.thumbnail_download_error = False
         self.instance = instance
         self.token = cache.get(self.token_cache_key) or self.get_token()
@@ -144,30 +144,30 @@ class WordPressClient:
         try:
             r = requests.request(method, url, **kwargs)
             r.raise_for_status()
-            return r
         except requests.exceptions.HTTPError as e:
-            logger.error(f'[sending post failed] - [exc: HTTP ERROR] - [response: {e.response.text} | status code: {e.response.status_code}] - [URL: {url}]')
-            raise Exception(e.response.text)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"[sending post failed] - [exc: {e}] - [URL: {url}]")
+            logger.error(f'[request failed]-[exc: HTTP ERROR]-[response: {e.response.text}]-[status code: {e.response.status_code}]-[URL: {url}]')
+            raise
+        except Exception as e:
+            logger.error(f"[request failed]-[exc: {e}]-[URL: {url}]")
+            raise
+        return r
 
     def get_token(self):
-        logger.debug(f"[getting new token] - [URL: {self.urls['token']} | username: {settings.WP_USER} "
-                     f"| password: {settings.WP_PASS}]")
+        logger.debug(f"[getting new token]-[URL: {self.urls['token']}]")
         req = self.post_request(
             self.urls['token'],
             json=dict(username=settings.WP_USER, password=settings.WP_PASS),
         )
         if req.ok:
             token = req.json()['data']['token']
-            logger.debug(f'[new token successfully added] - [token: {token}]')
+            logger.debug(f'[new token successfully added]-[token: {token}]')
             cache.set(self.token_cache_key, token, 604800)  # 7 days default expire time
             return token
         else:
-            logger.critical(f'[Getting token failed] - [user: {settings.WP_USER} | pass: {settings.WP_PASS}]')
+            logger.critical(f'[Getting token failed]-[]')
 
     def validate_token(self):
-        logger.debug(f"[validating the JWT Token] - [URL: {self.urls['validate-token']}]")
+        logger.debug(f"[validating the JWT Token]-[URL: {self.urls['validate-token']}]")
         req = self.post_request(
             self.urls['validate-token'],
             auth=True,
@@ -175,7 +175,7 @@ class WordPressClient:
         if req.ok:
             logger.debug(f'[Token is valid]')
         else:
-            logger.debug(f'[JWT Token of WP is not valid or expired] - [token: {self.token}]')
+            logger.debug(f'[JWT Token of WP is not valid or expired]-[token: {self.token}]')
             self.token = self.get_token()
 
     def create_single_music(self):
@@ -206,7 +206,7 @@ class WordPressClient:
 
         if req.ok:
             post_wp_id = req.json()['id']
-            logger.debug(f'[music posted successfully] - [wordpress id: {post_wp_id}]')
+            logger.debug(f'[music posted successfully]-[wordpress id: {post_wp_id}]')
             self.update_instance(
                 post_wp_id,
                 CMusic.APPROVED_STATUS
@@ -223,7 +223,7 @@ class WordPressClient:
             if self.instance.file_mp3_128:
                 fields['fields']['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128.url)
             else:
-                logger.debug(f'[file_mp3_128 field is empty] - [obj: {self.instance}]')
+                logger.debug(f'[file_mp3_128 field is empty]-[obj: {self.instance}]')
                 fields['fields']['link_128'] = self.download_music_file(
                     self.instance.link_mp3_128, 'link_mp3_128', self.instance
                 ).get_absolute_url_128()
@@ -232,14 +232,14 @@ class WordPressClient:
             if self.instance.file_mp3_320:
                 fields['fields']['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320.url)
             else:
-                logger.debug(f'[file_mp3_320 field is empty] - [obj: {self.instance}]')
+                logger.debug(f'[file_mp3_320 field is empty]-[obj: {self.instance}]')
                 fields['fields']['link_320'] = self.download_music_file(
                     self.instance.link_mp3_128, 'file_mp3_320', self.instance
                 ).get_absolute_url_320()
 
             self.update_acf_fields(fields, f"{self.urls['acf_fields_music']}{self.instance.wp_post_id}/")
         else:
-            logger.error(f'[creating single music post failed] - [obj: {self.instance} | status code: {req.status_code}]')
+            logger.error(f'[creating single music post failed]-[obj id: {self.instance.id}]-[obj type: {type(self.instance)}]-[status code: {req.status_code}]')
 
     def create_album(self):
         """
@@ -314,24 +314,20 @@ class WordPressClient:
                     {'Expires': '0'}
                 )},
             )
-            if req.ok:
-                return req.json()['id']
-            else:
-                logger.error(f'[creating media failed] - [obj: {self.instance} | status code: {req.status_code} '
-                             f'| response: {req.json()}]')
+            return req.json()['id']
         else:
             logger.debug(
-                f'[creating media failed] - [obj: {self.instance}] - [err: (thumbnail) has no file '
+                f'[creating media failed]-[obj: {self.instance}]-[err: (thumbnail) has no file '
                 f' associated with it]'
             )
-            logger.debug(f'[downloading thumbnail file...] - [obj: {self.instance}]')
+            logger.debug(f'[downloading thumbnail file...]-[obj: {self.instance}]')
 
             # downloading the thumbnail
             self.instance.file_thumbnail = Crawler.download_content(self.instance.link_thumbnail)
             try:
                 self.instance.save()
             except Exception as e:
-                logger.error(f'[Downloading thumbnail file failed] - [obj: {self.instance}] = [{e}]')
+                logger.error(f'[Downloading thumbnail file failed]-[obj: {self.instance}] = [{e}]')
             else:
                 if not self.thumbnail_download_error:
                     self.thumbnail_download_error = True  # adding this to break the possible loop
@@ -340,14 +336,14 @@ class WordPressClient:
     def download_music_file(self, url, field_name, instance):
         from .crawler import Crawler
         
-        logger.debug(f'[downloading {field_name}] - [obj: {instance} | URL: {url}] ')
+        logger.debug(f'[downloading {field_name}]-[obj: {instance}]-[URL: {url}] ')
         file = Crawler.download_content(url)
         setattr(instance, field_name, file)
         try:
             instance.save()
             return instance
         except Exception:
-            logger.error(f'[downloading music file failed] - [obj: {instance} | URL: {url}]')
+            logger.error(f'[downloading music file failed]-[obj: {instance}]-[URL: {url}]')
 
     def update_instance(self, wp_id, status, **kwargs):
         self.instance.wp_post_id = wp_id
@@ -363,7 +359,7 @@ class WordPressClient:
             json=fields,
         )
         if req.ok:
-            logger.debug(f'[ACF field updated successfully] - [wordpress id: {self.instance.wp_post_id}]')
+            logger.debug(f'[ACF field updated successfully]-[wordpress id: {self.instance.wp_post_id}]')
         else:
             logger.error(
-                f'[updating the ACF fields failed] - [wordpress id: {self.instance.wp_post_id} | status code: {req.status_code}]')
+                f'[updating the ACF fields failed]-[wordpress id: {self.instance.wp_post_id}]-[status code: {req.status_code}]')
