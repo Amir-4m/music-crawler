@@ -62,8 +62,12 @@ class Album(models.Model):
     wp_category_id = models.PositiveSmallIntegerField(_('category'), blank=True)
     wp_post_id = models.PositiveIntegerField(_('wordpress post id'), blank=True, null=True)
 
+    @property
+    def name(self):
+        return self.album_name_fa or self.album_name_en
+
     def __str__(self):
-        return f"{self.title} {self.id}"
+        return self.name
 
     def get_artist_info(self):
         return f"{self.artist.name_fa}\n{self.artist.name_en}"
@@ -123,8 +127,12 @@ class CMusic(models.Model):
     wp_category_id = models.PositiveSmallIntegerField(_('category'), blank=True)
     wp_post_id = models.PositiveIntegerField(_('wordpress post id'), blank=True, null=True)
 
+    @property
+    def name(self):
+        return self.song_name_fa or self.song_name_en
+
     def __str__(self):
-        return f"{self.title} {self.id}"
+        return self.name
 
     def get_artist_info(self):
         return f"{self.artist.name_fa}\n{self.artist.name_en}"
