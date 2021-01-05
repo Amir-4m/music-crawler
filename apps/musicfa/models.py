@@ -17,7 +17,7 @@ class Artist(models.Model):
     correct_names = ArrayField(models.CharField(max_length=150), verbose_name=_('correct names'), null=True)
 
     def __str__(self):
-        return f'{self.id} {self.name_en}'
+        return f'{self.name_en} {self.id}'
 
 
 class Album(models.Model):
