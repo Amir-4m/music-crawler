@@ -16,11 +16,12 @@ class Artist(models.Model):
 
     correct_names = ArrayField(models.CharField(max_length=150), verbose_name=_('correct names'), null=True)
 
-    def get_name(self):
+    @property
+    def name(self):
         return self.name_fa or self.name_en
 
     def __str__(self):
-        return self.get_name()
+        return self.name
 
 
 class Album(models.Model):
