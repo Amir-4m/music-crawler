@@ -47,14 +47,14 @@ class Crawler:
         try:
             req = requests.request(method, url, **kwargs, )
             req.raise_for_status()
-            if req.ok:
-                return req
         except requests.exceptions.HTTPError as e:
             logger.critical(f'[make request failed! HTTP ERROR]-[response: {e.response.text}]-[status code: {e.response.status_code}]-[URL: {url}]')
             raise Exception(e.response.text)
         except requests.RequestException as e:
             logger.error(f"[make request failed! HTTP ERROR]-[exc: {e}]-[URL: {url}]")
             raise
+
+        return req
 
     def get_crawled_musics(self):
         """
