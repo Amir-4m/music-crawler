@@ -38,6 +38,7 @@ class CMusicAdmin(admin.ModelAdmin):
     actions = ['send_to_word_press']
     list_display = ("song_name_en", 'artist', "title", "post_type", 'status', 'is_downloaded')
     list_filter = ['is_downloaded', 'post_type']
+    search_fields = ['artist_id', 'song_name_fa', 'song_name_en', 'album_id']
     readonly_fields = [
         'album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date', 'album', 'post_type'
     ]
@@ -131,7 +132,7 @@ class AlbumAdmin(admin.ModelAdmin):
 
 @admin.register(Artist)
 class ArtistAdmin(admin.ModelAdmin, DynamicArrayMixin):
-    list_display = ['name_en', 'name_fa']
+    list_display = ['id', 'name_en', 'name_fa']
     search_fields = ['name_en', 'name_fa']
     ordering = ['-id']
 

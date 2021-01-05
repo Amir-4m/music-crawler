@@ -318,7 +318,7 @@ class WordPressClient:
                 self.instance.save()
             except Exception:
                 self.thumbnail_download_error = True  # adding this to break the possible loop
-                logger.exception('Downloading thumbnail file failed')
+                logger.error('Downloading thumbnail file failed')
             else:
                 if not self.thumbnail_download_error:
                     return self.create_media()
@@ -333,7 +333,7 @@ class WordPressClient:
             instance.save()
             return instance
         except Exception:
-            logger.exception(f'Downloading music file failed {instance}')
+            logger.error(f'Downloading music file failed {instance}')
 
     def update_instance(self, wp_id, status, **kwargs):
         self.instance.wp_post_id = wp_id

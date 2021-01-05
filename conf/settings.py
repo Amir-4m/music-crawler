@@ -196,17 +196,11 @@ LOGGING = {
             'formatter': 'verbose' if DEBUG else 'simple',
             'filename': LOG_DIR / 'django.log',
         },
-        'db_queries': {
-            'level': 'DEBUG',
-            'filters': ['require_debug_true'],
-            'class': 'logging.FileHandler',
-            'filename': LOG_DIR / 'db_queries.log',
-        },
     },
     'loggers': {
         'apps': {
             'level': 'DEBUG',
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'propagate': True,
         },
     },

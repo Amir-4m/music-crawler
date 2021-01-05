@@ -46,8 +46,8 @@ class Album(models.Model):
     site_id = models.CharField(_('album site id'), max_length=50, unique=True, blank=True)
 
     link_thumbnail = models.TextField(_("link thumbnail"))
-    link_mp3_128 = models.TextField(_("quality of 128 mp3 link"))
-    link_mp3_320 = models.TextField(_("quality of 320 mp3 link"))
+    link_mp3_128 = models.TextField(_("quality of 128 mp3 link"), blank=True)
+    link_mp3_320 = models.TextField(_("quality of 320 mp3 link"), blank=True)
 
     is_downloaded = models.BooleanField(_('is downloaded'), default=False)
     file_thumbnail = models.ImageField(
