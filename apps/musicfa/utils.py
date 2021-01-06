@@ -1,3 +1,4 @@
+import fcntl
 import json
 import os
 import logging
@@ -7,9 +8,9 @@ from django.conf import settings
 from django.core.cache import cache
 
 import requests
-from pid import PidFile
 
 logger = logging.getLogger(__file__)
+file_handle = None
 
 
 class UploadTo:
@@ -68,40 +69,40 @@ def per_num_to_eng(number):
 
 
 def checking_task_status(func_name):
-    if os.path.exists('./locks'):
-        items = os.listdir('./locks')
-        return True if f'{func_name}.pid' in items else False
+    try:
+        file = fcntl.lockf(open(f'./locks/{func_name}'), fcntl.F_GETLK)
+    except FileNotFoundError as e:
+        return False
+    except BlockingIOError:
+        return True
     return False
 
 
-def check_running(function_name):
+def file_is_locked(file_path):
+    global file_handle
+
     if not os.path.exists('./locks'):
         os.mkdir('./locks')
-    file_lock = PidFile(str(function_name), piddir='./locks')
+
+    file_handle = open(file_path, 'w')
     try:
-        file_lock.create()
-        return file_lock
-    except:
-        return None
+        fcntl.lockf(file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return False
+    except IOError:
+        return True
 
 
 def stop_duplicate_task(func):
     """
-    By checking the PID file if file is exist will return False and do not execute (it's mean `func` is already
-     running), will return True if file does not exist and will create the PID file.
     :param func: function.__name__ will be used to stop duplicate tasks.
     :return: True or False
     """
-
     def inner_function():
-        file_lock = check_running(func.__name__)
-        if not file_lock:
-            logger.debug(f"[Another {func.__name__} is already running]")
+        file_path = f'./locks/{func.__name__}'
+        if file_is_locked(file_path):
+            logger.info(f" [Another {func.__name__} is already running]")
             return False
         func()
-        if file_lock:
-            file_lock.close()
-        return True
 
     return inner_function
 
