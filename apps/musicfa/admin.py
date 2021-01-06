@@ -106,11 +106,12 @@ class CMusicAdmin(admin.ModelAdmin):
 @admin.register(Album)
 class AlbumAdmin(admin.ModelAdmin):
     inlines = [CMusicInline]
+    raw_id_fields = ['artist']
     list_display = ("get_name", 'artist', 'status')
     search_fields = ['album_name_en', 'album_name_fa', 'title']
     list_filter = ['is_downloaded']
     ordering = ['-id']
-    readonly_fields = ['get_thumbnail']
+    readonly_fields = ['get_thumbnail', 'site_id', 'wp_post_id']
     actions = ['send_to_word_press']
     fieldsets = (
         ('Album', {'fields': ('title', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
