@@ -94,7 +94,23 @@ class CMusicAdmin(admin.ModelAdmin):
     get_thumbnail.short_description = _('current thumbnail')
 
     def send_to_word_press(self, request, queryset):
-        create_single_music_post_task.apply_async(args=tuple([q.id for q in queryset]))
+        # creating the album post from tracks of it
+        create_album_post_task.apply_async(
+            args=tuple(
+                [
+                    q.album_id
+                    for q in queryset.filter(
+                        post_type=CMusic.ALBUM_MUSIC_TYPE
+                    ).order_by('album_id').distinct('album_id')
+                ]
+            )
+        )
+        # creating single music post
+        create_single_music_post_task.apply_async(
+            args=tuple(
+                [q.id for q in queryset.filter(post_type=CMusic.SINGLE_TYPE)]
+            )
+        )
         messages.info(request, _('selected musics created at wordpress!'))
 
 

@@ -146,10 +146,9 @@ class Crawler:
 
         try:
             artist, created = Artist.objects.get_or_create(
-                correct_names__overlap=correct_names,
+                correct_names__overlap=correct_names, name_en=name_en,
                 defaults=dict(name_fa=name_fa or '', name_en=name_en, correct_names=correct_names)
             )
-            print(artist)
         except Exception as e:
             logger.error(f"[creating artist failed]-[exc: {e}]-[name_en: {name_en}]-[name_fa: {name_fa}]")
             return
