@@ -141,9 +141,9 @@ class Crawler:
 
     def create_artist(self, **kwargs):
         correct_names = [value for key, value in kwargs.items()]
-        artists = Artist.objects.filter(**kwargs)
-        if artists.exists():
-            return artists.first()
+        artist = Artist.objects.filter(**kwargs).filter()
+        if artist is not None:
+            return artist
 
         try:
             kwargs['correct_names'] = correct_names
@@ -432,9 +432,9 @@ class Ganja2MusicCrawler(Crawler):
 
     def detect_new_post_in_page(self, main_page_url, soup):
         music_ids_in_current_page = [link.attrs['href'].split('/')[3] for link in soup.find_all('a', class_='iaebox')]
-        if 'single' in main_page_url and CMusic.objects.filter(site_id__in=music_ids_in_current_page).count() < 30:
+        if 'single' in main_page_url and CMusic.objects.filter(site_id__in=music_ids_in_current_page).count() < 18:
             return True
-        elif 'album' in main_page_url and Album.objects.filter(site_id__in=music_ids_in_current_page).count() < 30:
+        elif 'album' in main_page_url and Album.objects.filter(site_id__in=music_ids_in_current_page).count() < 18:
             return True
         return False
 
