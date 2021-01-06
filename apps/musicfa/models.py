@@ -18,7 +18,7 @@ class Artist(models.Model):
 
     @property
     def name(self):
-        return self.name_fa or self.name_en
+        return self.name_fa or self.name_en or self.id
 
     def __str__(self):
         return self.name
@@ -64,7 +64,7 @@ class Album(models.Model):
 
     @property
     def name(self):
-        return self.album_name_fa or self.album_name_en
+        return self.album_name_fa or self.album_name_en or self.id
 
     def __str__(self):
         return self.name
@@ -129,7 +129,7 @@ class CMusic(models.Model):
 
     @property
     def name(self):
-        return self.song_name_fa or self.song_name_en
+        return self.song_name_fa or self.song_name_en or self.id
 
     def __str__(self):
         return self.name
