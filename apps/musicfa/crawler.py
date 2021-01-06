@@ -139,18 +139,20 @@ class Crawler:
             logger.info(f'[duplicate album found]-[id: {album.id}]')
         return album
 
-    def create_artist(self, name_en, name_fa=None):
-        correct_names = [name_en]
-        if name_fa:
-            correct_names.append(name_fa)
+    def create_artist(self, **kwargs):
+        correct_names = [value for key, value in kwargs.items()]
+        artists = Artist.objects.filter(**kwargs)
+        if artists.exists():
+            return artists.first()
 
         try:
+            kwargs['correct_names'] = correct_names
             artist, created = Artist.objects.get_or_create(
                 correct_names__overlap=correct_names,
-                defaults=dict(name_fa=name_fa or '', name_en=name_en, correct_names=correct_names)
+                defaults=kwargs
             )
         except Exception as e:
-            logger.error(f"[creating artist failed]-[exc: {e}]-[name_en: {name_en}]-[name_fa: {name_fa}]")
+            logger.error(f"[creating artist failed]-[exc: {e}]-[kwargs: {kwargs}]")
             return
         if created:
             logger.info(f'[new artist created]-[id: {artist.id}]')
@@ -259,7 +261,7 @@ class NicMusicCrawler(Crawler):
                             "song_name_en": song_name_en,
                             "post_type": CMusic.SINGLE_TYPE,
                             "lyrics": lyrics,
-                            "artist": self.create_artist(artist_name_en, artist_name_fa),
+                            "artist": self.create_artist(name_en=artist_name_en, name_fa=artist_name_fa),
                             "link_mp3_128": quality_128,
                             "link_mp3_320": quality_320,
                             "link_thumbnail": thumbnail,
@@ -354,7 +356,7 @@ class Ganja2MusicCrawler(Crawler):
                 kwargs = dict(
                     site_id=self.get_obj_site_id(post_page_url),
                     defaults=dict(
-                        artist=self.create_artist(artist_name_en),  # get or create Artist
+                        artist=self.create_artist(name_en=artist_name_en),  # get or create Artist
                         song_name_en=song_name_en,
                         link_mp3_128=link_128,
                         link_mp3_320=link_320,
@@ -390,7 +392,7 @@ class Ganja2MusicCrawler(Crawler):
                 site_id = self.get_obj_site_id(post_page_url)
 
                 defaults = dict(
-                    artist=self.create_artist(artist_name_en),
+                    artist=self.create_artist(name_en=artist_name_en),
                     page_url=post_page_url,
                     link_mp3_128=link_128,
                     link_mp3_320=link_320,
