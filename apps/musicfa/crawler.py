@@ -436,47 +436,41 @@ class Ganja2MusicCrawler(Crawler):
                 logger.error(f"[creating album failed]-[exc: {e}]-[URL: {post_page_url}]")
                 continue
 
-    def detect_new_post_in_page(self, main_page_url, soup):
-        music_ids_in_current_page = [link.attrs['href'].split('/')[3] for link in soup.find_all('a', class_='iaebox')]
-        if 'single' in main_page_url and CMusic.objects.filter(site_id__in=music_ids_in_current_page).count() < 18:
-            return True
-        elif 'album' in main_page_url and Album.objects.filter(site_id__in=music_ids_in_current_page).count() < 18:
-            return True
-        return False
+    def is_new_post(self, post_link):
+        site_id = post_link.split('/')[3]
+        return CMusic.objects.filter(site_id=site_id).exists()
 
     def collect_post_links(self, main_page_url):
+        main_url = f"{self.base_url}{main_page_url}"
         logger.info(f'[collect single music links]-[website: {self.website_name}]')
+        first_page = self.make_request(main_url)
+        soup = BeautifulSoup(first_page.text, "html.parser")
         try:
             # Getting the first page musics
-            first_page = self.make_request(f"{self.base_url}{main_page_url}")
-            soup = BeautifulSoup(first_page.text, "html.parser")
-            next_page_link = soup.find('div', class_='pagenumbers').find('a', class_="next page-numbers").attrs['href']
-            if self.detect_new_post_in_page(main_page_url, soup):
-                for post_detail in soup.find_all('div', class_='postbox'):
+            for post_detail in soup.find_all('div', class_='postbox'):
+                link = post_detail.find('a', class_='iaebox').attrs['href']
+                if self.is_new_post(link):
                     yield post_detail.find('a', class_='iaebox').attrs['href']
+                else:
+                    logger.debug(f'[duplicate post found]-[URL: {link}')
         except Exception as e:
             logger.error(f'[getting first page failed]-[exc: {e}]-[URL: {main_page_url}')
-            return
+
+        navigation_section = soup.find_all('a', class_="page-numbers")
+        last_page = int(navigation_section[-2].get_text())
+
         # Crawling the next pages
-        while next_page_link:
-            try:
-                page = self.make_request(next_page_link)
-                soup = BeautifulSoup(page.text, "html.parser")
-                if self.detect_new_post_in_page(main_page_url, soup):
-                    for post_detail in soup.find_all('div', class_='postbox'):
-                        link = post_detail.find('a', class_='iaebox').attrs['href']
-                        yield link
+        for i in range(1, last_page + 1):
+            current_page_url = f"{main_url}/page/{i}"
+            page = self.make_request(current_page_url)
+            soup = BeautifulSoup(page.text, "html.parser")
+            logger.info(f'[crawling page...]-[URL: {current_page_url}]')
+            for post_detail in soup.find_all('div', class_='postbox'):
+                link = post_detail.find('a', class_='iaebox').attrs['href']
+                if self.is_new_post(link):
+                    yield link
                 else:
-                    logger.info(f'[crawled page found. skipping this page]-[URL: {next_page_link}]')
-                next_page_link = soup.find('div', class_='pagenumbers').find('a', class_="next page-numbers").attrs[
-                    'href']
-                logger.info(f'[next page]-[URL: {next_page_link}]')
-            except AttributeError as e:
-                logger.error(f'[end of the pages]-[exc: {e}]-[current page: {next_page_link}]')
-                return
-            except Exception as e:
-                logger.error(f'[navigating pages failed]-[exc: {e}]-[current page: {next_page_link}]')
-                return
+                    logger.debug(f'[duplicate post found]-[URL: {link}')
 
     def collect_files(self):
         super().collect_files()
