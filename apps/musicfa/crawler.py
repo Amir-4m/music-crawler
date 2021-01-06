@@ -146,7 +146,7 @@ class Crawler:
 
         try:
             artist, created = Artist.objects.get_or_create(
-                correct_names__overlap=correct_names, name_en=name_en,
+                correct_names__overlap=correct_names,
                 defaults=dict(name_fa=name_fa or '', name_en=name_en, correct_names=correct_names)
             )
         except Exception as e:
@@ -390,7 +390,7 @@ class Ganja2MusicCrawler(Crawler):
                 site_id = self.get_obj_site_id(post_page_url)
 
                 defaults = dict(
-                    artist=self.create_artist(artist_name_en, ''),
+                    artist=self.create_artist(artist_name_en),
                     page_url=post_page_url,
                     link_mp3_128=link_128,
                     link_mp3_320=link_320,

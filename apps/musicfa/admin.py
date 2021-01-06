@@ -38,7 +38,7 @@ class CMusicAdmin(admin.ModelAdmin):
     actions = ['send_to_word_press']
     list_display = ("name", 'artist', "title", "post_type", 'status', 'is_downloaded')
     list_filter = ['is_downloaded', 'post_type']
-    search_fields = ['artist_id', 'song_name_fa', 'song_name_en', 'album_id']
+    search_fields = ['song_name_fa', 'song_name_en']
     readonly_fields = [
         'album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date', 'album', 'post_type'
     ]
