@@ -200,7 +200,7 @@ LOGGING = {
     'loggers': {
         'apps': {
             'level': 'DEBUG',
-            'handlers': ['console', 'file'],
+            'handlers': ['file'],
             'propagate': True,
         },
     },

@@ -69,7 +69,12 @@ def per_num_to_eng(number):
 
 
 def checking_task_status(func_name):
-    return True if file_is_locked(f'./locks/{func_name}') else False
+    try:
+        file = fcntl.lockf(open(f'./locks/{func_name}'), fcntl.F_GETLK)
+    except FileNotFoundError as e:
+        return False
+    except BlockingIOError:
+        return True
 
 
 def file_is_locked(file_path):
@@ -94,6 +99,7 @@ def stop_duplicate_task(func):
     def inner_function():
         file_path = f'./locks/{func.__name__}'
         if file_is_locked(file_path):
+            logger.info(f" [Another {func.__name__} is already running]")
             return False
         func()
 

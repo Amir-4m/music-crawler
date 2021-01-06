@@ -116,10 +116,10 @@ class Crawler:
                 **kwargs
             )
             if created:
-                logger.info(f'[new {c_music.post_type} music created]-[id:{c_music.id}]-[album id: {c_music.album_id}]')
+                logger.info(f'[new {c_music.post_type} created]-[id:{c_music.id}]-[album id: {c_music.album_id}]')
             else:
                 logger.info(
-                    f'[duplicate {c_music.post_type} music found]-[id:{c_music.id}]-[album id: {c_music.album_id}]')
+                    f'[duplicate {c_music.post_type} found]-[id:{c_music.id}]-[album id: {c_music.album_id}]')
         except Exception as e:
             logger.warning(f"[creating music failed]-[exc: {e}]")
 
