@@ -75,6 +75,7 @@ def checking_task_status(func_name):
         return False
     except BlockingIOError:
         return True
+    return False
 
 
 def file_is_locked(file_path):
