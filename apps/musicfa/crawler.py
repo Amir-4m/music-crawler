@@ -384,6 +384,8 @@ class Ganja2MusicCrawler(Crawler):
 
                 link_128, link_320 = self.get_download_link(soup)  # zip files
                 link_thumbnail = soup.find('div', class_='insidercover').find('a').attrs['href']
+                if not link_thumbnail.startswith('http'):
+                    link_thumbnail = self.get_thumbnail(soup)
                 album_name_en, artist_name_en, publish_date = self.get_content_section_info(soup)
                 title = self.get_title(soup)
                 site_id = self.get_obj_site_id(post_page_url)
