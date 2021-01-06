@@ -116,9 +116,9 @@ class Crawler:
                 **kwargs
             )
             if created:
-                logger.info(f'[new {c_music.post_type} created]-[id:{c_music.id}]-[album id: {c_music.album_id}]')
+                logger.debug(f'[new {c_music.post_type} created]-[id:{c_music.id}]-[album id: {c_music.album_id}]')
             else:
-                logger.info(
+                logger.debug(
                     f'[duplicate {c_music.post_type} found]-[id:{c_music.id}]-[album id: {c_music.album_id}]')
         except Exception as e:
             logger.warning(f"[creating music failed]-[exc: {e}]")
@@ -134,16 +134,16 @@ class Crawler:
             logger.debug(f"[defaults: {defaults}]")
             return
         if created:
-            logger.info(f'[new album created]-[id: {album.id}]')
+            logger.debug(f'[new album created]-[id: {album.id}]')
         else:
-            logger.info(f'[duplicate album found]-[id: {album.id}]')
+            logger.debug(f'[duplicate album found]-[id: {album.id}]')
         return album
 
     def create_artist(self, **kwargs):
         correct_names = [value for key, value in kwargs.items()]
-        artists = Artist.objects.filter(**kwargs)
-        if artists.exists():
-            return artists.first()
+        artist = Artist.objects.filter(**kwargs).first()
+        if artist is not None:
+            return artist
 
         try:
             kwargs['correct_names'] = correct_names
@@ -155,9 +155,9 @@ class Crawler:
             logger.error(f"[creating artist failed]-[exc: {e}]-[kwargs: {kwargs}]")
             return
         if created:
-            logger.info(f'[new artist created]-[id: {artist.id}]')
+            logger.debug(f'[new artist created]-[id: {artist.id}]')
         else:
-            logger.info(f'[duplicate artist found]-[id: {artist.id}]')
+            logger.debug(f'[duplicate artist found]-[id: {artist.id}]')
         return artist
 
 
@@ -252,6 +252,8 @@ class NicMusicCrawler(Crawler):
                 publish_date = self.fix_jdate(soup.find("div", class_="times").get_text().strip(), months)
                 publish_date = datetime.strptime(publish_date, '%m %d, %Y')
 
+                artist = self.create_artist(name_en=artist_name_en, name_fa=artist_name_fa)
+
                 if len(artist_name_en) > 0:
                     kwargs = dict(
                         site_id=self.get_site_id(soup),
@@ -261,7 +263,7 @@ class NicMusicCrawler(Crawler):
                             "song_name_en": song_name_en,
                             "post_type": CMusic.SINGLE_TYPE,
                             "lyrics": lyrics,
-                            "artist": self.create_artist(name_en=artist_name_en, name_fa=artist_name_fa),
+                            "artist": artist,
                             "link_mp3_128": quality_128,
                             "link_mp3_320": quality_320,
                             "link_thumbnail": thumbnail,
@@ -353,10 +355,11 @@ class Ganja2MusicCrawler(Crawler):
                 if lyric_text:
                     lyric_text = lyric_text.get_text()
 
+                artist = self.create_artist(name_en=artist_name_en),  # get or create Artist
                 kwargs = dict(
                     site_id=self.get_obj_site_id(post_page_url),
                     defaults=dict(
-                        artist=self.create_artist(name_en=artist_name_en),  # get or create Artist
+                        artist=artist,
                         song_name_en=song_name_en,
                         link_mp3_128=link_128,
                         link_mp3_320=link_320,
@@ -390,9 +393,10 @@ class Ganja2MusicCrawler(Crawler):
                 album_name_en, artist_name_en, publish_date = self.get_content_section_info(soup)
                 title = self.get_title(soup)
                 site_id = self.get_obj_site_id(post_page_url)
+                artist = self.create_artist(name_en=artist_name_en)
 
                 defaults = dict(
-                    artist=self.create_artist(name_en=artist_name_en),
+                    artist=artist,
                     page_url=post_page_url,
                     link_mp3_128=link_128,
                     link_mp3_320=link_320,
@@ -403,38 +407,40 @@ class Ganja2MusicCrawler(Crawler):
                     site_id=site_id,
                     wp_category_id=self.category_id
                 )
-                album = self.create_album(site_id, defaults)
 
                 # getting and creating all musics
                 album_musics = soup.find_all('div', class_='trklines')
-
-                for index, m in enumerate(album_musics):
-                    link_mp3_320 = m.find('div', class_='rightf3').find('a').attrs['href']
-                    kwargs = dict(
-                        # creating custom site id for `album-musics` type from album site id
-                        site_id=f"{int(site_id) + 1001 + index}",
-                        defaults=dict(
-                            link_mp3_128=m.find('div', class_='rightf3 plyiter').find('a').attrs['href'],
-                            link_mp3_320=link_mp3_320,
-                            album=album,
-                            artist_id=album.artist_id,
-                            published_date=publish_date,
-                            page_url=post_page_url,
-                            post_type=CMusic.ALBUM_MUSIC_TYPE,
-                            song_name_en=m.find('div', class_='rightf2').get_text(),
-                            wp_category_id=self.category_id
+                if album_musics:
+                    album = self.create_album(site_id, defaults)
+                    for index, m in enumerate(album_musics):
+                        link_mp3_320 = m.find('div', class_='rightf3').find('a').attrs['href']
+                        kwargs = dict(
+                            # creating custom site id for `album-musics` type from album site id
+                            site_id=f"{int(site_id) + 1001 + index}",
+                            defaults=dict(
+                                link_mp3_128=m.find('div', class_='rightf3 plyiter').find('a').attrs['href'],
+                                link_mp3_320=link_mp3_320,
+                                album=album,
+                                artist_id=album.artist_id,
+                                published_date=publish_date,
+                                page_url=post_page_url,
+                                post_type=CMusic.ALBUM_MUSIC_TYPE,
+                                song_name_en=m.find('div', class_='rightf2').get_text(),
+                                wp_category_id=self.category_id
+                            )
                         )
-                    )
-                    self.create_music(**kwargs)
+                        self.create_music(**kwargs)
+                else:
+                    logger.warning("[finding tracks of album failed]-[exc: track list is empty]")
             except Exception as e:
                 logger.error(f"[creating album failed]-[exc: {e}]-[URL: {post_page_url}]")
                 continue
 
     def detect_new_post_in_page(self, main_page_url, soup):
         music_ids_in_current_page = [link.attrs['href'].split('/')[3] for link in soup.find_all('a', class_='iaebox')]
-        if 'single' in main_page_url and CMusic.objects.filter(site_id__in=music_ids_in_current_page).count() < 30:
+        if 'single' in main_page_url and CMusic.objects.filter(site_id__in=music_ids_in_current_page).count() < 18:
             return True
-        elif 'album' in main_page_url and Album.objects.filter(site_id__in=music_ids_in_current_page).count() < 30:
+        elif 'album' in main_page_url and Album.objects.filter(site_id__in=music_ids_in_current_page).count() < 18:
             return True
         return False
 
@@ -465,9 +471,12 @@ class Ganja2MusicCrawler(Crawler):
                 next_page_link = soup.find('div', class_='pagenumbers').find('a', class_="next page-numbers").attrs[
                     'href']
                 logger.info(f'[next page]-[URL: {next_page_link}]')
+            except AttributeError as e:
+                logger.error(f'[end of the pages]-[exc: {e}]-[current page: {next_page_link}]')
+                return
             except Exception as e:
                 logger.error(f'[navigating pages failed]-[exc: {e}]-[current page: {next_page_link}]')
-                continue
+                return
 
     def collect_files(self):
         super().collect_files()

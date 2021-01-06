@@ -35,7 +35,10 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
+django
+
 # Unit test / coverage reports
+locks
 htmlcov/
 .tox/
 .coverage
