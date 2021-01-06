@@ -258,6 +258,9 @@ class WordPressClient:
             for music in CMusic.objects.filter(album=self.instance)
         ])  # track's link
 
+        # updating the track's status of this album
+        CMusic.objects.filter(album=self.instance).update(status=CMusic.APPROVED_STATUS)
+
         payload_data = dict(
             title=self.instance.title,
             content=f"{self.instance.get_artist_info()}",
