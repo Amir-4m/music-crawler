@@ -141,9 +141,9 @@ class Crawler:
 
     def create_artist(self, **kwargs):
         correct_names = [value for key, value in kwargs.items()]
-        artists = Artist.objects.filter(**kwargs)
-        if artists.exists():
-            return artists.first()
+        artist = Artist.objects.filter(**kwargs).first()
+        if artist is not None:
+            return artist
 
         try:
             kwargs['correct_names'] = correct_names
