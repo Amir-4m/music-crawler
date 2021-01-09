@@ -1,3 +1,4 @@
+import re
 import logging
 from urllib.parse import unquote, urlparse
 
@@ -182,6 +183,8 @@ class NicMusicCrawler(Crawler):
             main_soup = BeautifulSoup(main_page.text, "html.parser")
             nav_links = main_soup.find("div", class_="nav-links").find_all("a")
             total_pages = int(nav_links[-2].get_text())
+
+            logger.info(f'[{total_pages} page found to crawl]-[website: {self.website_name}]')
             for i in range(1, total_pages + 1):
                 page = requests.get(f"{self.base_url}page/{i}/")
                 soup = BeautifulSoup(page.text, "html.parser")
@@ -452,16 +455,18 @@ class Ganja2MusicCrawler(Crawler):
                 if self.is_new_post(link):
                     yield post_detail.find('a', class_='iaebox').attrs['href']
                 else:
-                    logger.debug(f'[duplicate post found]-[URL: {link}')
+                    logger.info(f'[duplicate post found]-[URL: {link}')
         except Exception as e:
             logger.error(f'[getting first page failed]-[exc: {e}]-[URL: {main_page_url}')
 
         navigation_section = soup.find_all('a', class_="page-numbers")
-        last_page = int(navigation_section[-2].get_text())
 
+        # to remove any non digit character from this text like this ("3,045") using re.sub
+        last_page = int(re.sub("[^0-9]", "", navigation_section[-2].get_text()))
+        logger.info(f'[{last_page} page found to crawl]-[website: {self.website_name}]')
         # Crawling the next pages
         for i in range(1, last_page + 1):
-            current_page_url = f"{main_url}/page/{i}"
+            current_page_url = f"{main_url}page/{i}"
             page = self.make_request(current_page_url)
             soup = BeautifulSoup(page.text, "html.parser")
             logger.info(f'[crawling page...]-[URL: {current_page_url}]')
@@ -499,5 +504,4 @@ class Ganja2MusicCrawler(Crawler):
                 c.save()
             except Exception as e:
                 logger.error(f'[collect files failed]-[exc: {e}]-[album: {c}]')
-
 

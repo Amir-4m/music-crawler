@@ -68,7 +68,7 @@ def collect_musics_nic():
     :return: None
     """
     NicMusicCrawler().collect_musics()
-    collect_files_nic()
+    NicMusicCrawler().collect_files()
 
 
 @stop_duplicate_task
@@ -78,14 +78,4 @@ def collect_musics_ganja():
     :return: None
     """
     Ganja2MusicCrawler().collect_musics()
-    collect_files_ganja()
-
-
-@stop_duplicate_task
-def collect_files_nic():
-    NicMusicCrawler().collect_files()
-
-
-@stop_duplicate_task
-def collect_files_ganja():
     Ganja2MusicCrawler().collect_files()
