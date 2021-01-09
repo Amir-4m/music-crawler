@@ -446,36 +446,31 @@ class Ganja2MusicCrawler(Crawler):
     def collect_post_links(self, main_page_url):
         main_url = f"{self.base_url}{main_page_url}"
         logger.info(f'[collect single music links]-[website: {self.website_name}]')
-        first_page = self.make_request(main_url)
-        soup = BeautifulSoup(first_page.text, "html.parser")
         try:
             # Getting the first page musics
-            for post_detail in soup.find_all('div', class_='postbox'):
-                link = post_detail.find('a', class_='iaebox').attrs['href']
-                if self.is_new_post(link):
-                    yield post_detail.find('a', class_='iaebox').attrs['href']
-                else:
-                    logger.info(f'[duplicate post found]-[URL: {link}')
+            first_page = self.make_request(main_url)
+            soup = BeautifulSoup(first_page.text, "html.parser")
+            navigation_section = soup.find_all('a', class_="page-numbers")
+            # to remove any non digit character from this text like this ("3,045") using re.sub
+            last_page = int(re.sub("[^0-9]", "", navigation_section[-2].get_text()))
+
         except Exception as e:
             logger.error(f'[getting first page failed]-[exc: {e}]-[URL: {main_page_url}')
-
-        navigation_section = soup.find_all('a', class_="page-numbers")
-
-        # to remove any non digit character from this text like this ("3,045") using re.sub
-        last_page = int(re.sub("[^0-9]", "", navigation_section[-2].get_text()))
-        logger.info(f'[{last_page} page found to crawl]-[website: {self.website_name}]')
-        # Crawling the next pages
-        for i in range(1, last_page + 1):
-            current_page_url = f"{main_url}page/{i}"
-            page = self.make_request(current_page_url)
-            soup = BeautifulSoup(page.text, "html.parser")
-            logger.info(f'[crawling page...]-[URL: {current_page_url}]')
-            for post_detail in soup.find_all('div', class_='postbox'):
-                link = post_detail.find('a', class_='iaebox').attrs['href']
-                if self.is_new_post(link):
-                    yield link
-                else:
-                    logger.debug(f'[duplicate post found]-[URL: {link}')
+        else:
+            logger.info(f'[{last_page} page found to crawl]-[website: {self.website_name}]')
+            # Crawling the next pages
+            for i in range(1, last_page + 1):
+                current_page_url = f"{main_url}page/{i}"
+                page = self.make_request(current_page_url)
+                soup = BeautifulSoup(page.text, "html.parser")
+                logger.info(f'[crawling page...]-[URL: {current_page_url}]')
+                for post_detail in soup.find_all('div', class_='postbox'):
+                    link = post_detail.find('a', class_='iaebox').attrs['href']
+                    if self.is_new_post(link):
+                        yield link
+                    else:
+                        logger.info(f'[duplicate post found]-[URL: {link}]-[Page: {current_page_url}]')
+                        return
 
     def collect_files(self):
         super().collect_files()
