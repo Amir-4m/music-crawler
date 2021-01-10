@@ -161,6 +161,23 @@ class Crawler:
             logger.debug(f'[duplicate artist found]-[id: {artist.id}]')
         return artist
 
+    def is_duplicate(self, cls, site_id):
+        return cls.objects.filter(site_id=site_id).exists()
+        
+    def is_new_post_album(self, site_id):
+        """
+        :param site_id: site id of Album
+        :return: if the CMusic is not exist it's mean new post (True) otherwise (False) will return.
+        """
+        return self.is_duplicate(Album, site_id)
+
+    def is_new_post_single(self, site_id):
+        """
+        :param site_id: site id of CMusic
+        :return: if the CMusic is not exist it's mean new post (True) otherwise (False) will return.
+        """
+        return self.is_duplicate(CMusic, site_id)
+
 
 class NicMusicCrawler(Crawler):
     category_id = 0
@@ -186,8 +203,10 @@ class NicMusicCrawler(Crawler):
 
             logger.info(f'[{total_pages} page found to crawl]-[website: {self.website_name}]')
             for i in range(1, total_pages + 1):
-                page = requests.get(f"{self.base_url}page/{i}/")
+                page_url = f"{self.base_url}page/{i}/"
+                page = requests.get(page_url)
                 soup = BeautifulSoup(page.text, "html.parser")
+                logger.info(f'[crawling... ]-[URL: {page_url}]')
                 for post in soup.find_all("a", class_="show-more"):
                     yield post.attrs["href"]
         except Exception as e:
@@ -256,26 +275,30 @@ class NicMusicCrawler(Crawler):
                 publish_date = datetime.strptime(publish_date, '%m %d, %Y')
 
                 artist = self.create_artist(name_en=artist_name_en, name_fa=artist_name_fa)
+                site_id = self.get_site_id(soup)
 
-                if len(artist_name_en) > 0:
-                    kwargs = dict(
-                        site_id=self.get_site_id(soup),
-                        defaults={
-                            "title": title,
-                            "song_name_fa": song_name_fa,
-                            "song_name_en": song_name_en,
-                            "post_type": CMusic.SINGLE_TYPE,
-                            "lyrics": lyrics,
-                            "artist": artist,
-                            "link_mp3_128": quality_128,
-                            "link_mp3_320": quality_320,
-                            "link_thumbnail": thumbnail,
-                            "published_date": publish_date,
-                            'page_url': url,
-                            'wp_category_id': self.category_id
-                        }
-                    )
-                    self.create_music(**kwargs)
+                if not self.is_new_post_single(site_id):
+                    if len(artist_name_en) > 0:
+                        kwargs = dict(
+                            site_id=site_id,
+                            defaults={
+                                "title": title,
+                                "song_name_fa": song_name_fa,
+                                "song_name_en": song_name_en,
+                                "post_type": CMusic.SINGLE_TYPE,
+                                "lyrics": lyrics,
+                                "artist": artist,
+                                "link_mp3_128": quality_128,
+                                "link_mp3_320": quality_320,
+                                "link_thumbnail": thumbnail,
+                                "published_date": publish_date,
+                                'page_url': url,
+                                'wp_category_id': self.category_id
+                            }
+                        )
+                        self.create_music(**kwargs)
+                else:
+                    logger.info(f'[duplicate post found]-[URL: {url}]')
             except Exception as e:
                 logger.warning(f'[failed to collect music]-[exc: {e}]-[website: {self.website_name}]')
                 continue
@@ -337,7 +360,7 @@ class Ganja2MusicCrawler(Crawler):
         return url.split('/')[3]
 
     def collect_link_singles(self):
-        for link in self.collect_post_links('archive/single/'):
+        for link in self.collect_post_links('archive/single/', 'single'):
             yield link
 
     def collect_single_musics(self):
@@ -358,7 +381,7 @@ class Ganja2MusicCrawler(Crawler):
                 if lyric_text:
                     lyric_text = lyric_text.get_text()
 
-                artist = self.create_artist(name_en=artist_name_en),  # get or create Artist
+                artist = self.create_artist(name_en=artist_name_en)  # get or create Artist
                 kwargs = dict(
                     site_id=self.get_obj_site_id(post_page_url),
                     defaults=dict(
@@ -381,7 +404,7 @@ class Ganja2MusicCrawler(Crawler):
                 continue
 
     def collect_link_albums(self):
-        for link in self.collect_post_links('archive/album/'):
+        for link in self.collect_post_links('archive/album/', 'album'):
             yield link
 
     def collect_album_musics(self):
@@ -439,11 +462,7 @@ class Ganja2MusicCrawler(Crawler):
                 logger.error(f"[creating album failed]-[exc: {e}]-[URL: {post_page_url}]")
                 continue
 
-    def is_new_post(self, post_link):
-        site_id = post_link.split('/')[3]
-        return CMusic.objects.filter(site_id=site_id).exists()
-
-    def collect_post_links(self, main_page_url):
+    def collect_post_links(self, main_page_url, post_type):
         main_url = f"{self.base_url}{main_page_url}"
         logger.info(f'[collect single music links]-[website: {self.website_name}]')
         try:
@@ -466,7 +485,8 @@ class Ganja2MusicCrawler(Crawler):
                 logger.info(f'[crawling page...]-[URL: {current_page_url}]')
                 for post_detail in soup.find_all('div', class_='postbox'):
                     link = post_detail.find('a', class_='iaebox').attrs['href']
-                    if self.is_new_post(link):
+                    site_id = link.split('/')[3]
+                    if not getattr(self, f'is_new_post_{post_type}')(site_id):  # post_type could be album or single
                         yield link
                     else:
                         logger.info(f'[duplicate post found]-[URL: {link}]-[Page: {current_page_url}]')
