@@ -161,19 +161,22 @@ class Crawler:
             logger.debug(f'[duplicate artist found]-[id: {artist.id}]')
         return artist
 
+    def is_duplicate(self, cls, site_id):
+        return cls.objects.filter(site_id=site_id).exists()
+        
     def is_new_post_album(self, site_id):
         """
         :param site_id: site id of Album
         :return: if the CMusic is not exist it's mean new post (True) otherwise (False) will return.
         """
-        return Album.objects.filter(site_id=site_id).exists()
+        return self.is_duplicate(Album, site_id)
 
     def is_new_post_single(self, site_id):
         """
         :param site_id: site id of CMusic
         :return: if the CMusic is not exist it's mean new post (True) otherwise (False) will return.
         """
-        return CMusic.objects.filter(site_id=site_id).exists()
+        return self.is_duplicate(CMusic, site_id)
 
 
 class NicMusicCrawler(Crawler):
