@@ -1,4 +1,3 @@
-import fcntl
 import json
 import os
 import logging
@@ -8,6 +7,7 @@ from django.conf import settings
 from django.core.cache import cache
 
 import requests
+from pid import PidFile
 
 logger = logging.getLogger(__file__)
 file_handle = None
@@ -69,41 +69,33 @@ def per_num_to_eng(number):
 
 
 def checking_task_status(func_name):
-    try:
-        file = fcntl.lockf(open(f'./locks/{func_name}'), fcntl.F_GETLK)
-    except FileNotFoundError as e:
-        return False
-    except BlockingIOError:
-        return True
+    if os.path.exists('./locks'):
+        items = os.listdir('./locks')
+        return True if f'{func_name}.pid' in items else False
     return False
 
 
-def file_is_locked(file_path):
-    global file_handle
-
+def check_running(function_name):
     if not os.path.exists('./locks'):
         os.mkdir('./locks')
-
-    file_handle = open(file_path, 'w')
+    file_lock = PidFile(str(function_name), piddir='./locks')
     try:
-        fcntl.lockf(file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return False
-    except IOError:
-        return True
+        file_lock.create()
+        return file_lock
+    except:
+        return None
 
 
 def stop_duplicate_task(func):
-    """
-    :param func: function.__name__ will be used to stop duplicate tasks.
-    :return: True or False
-    """
     def inner_function():
-        file_path = f'./locks/{func.__name__}'
-        if file_is_locked(file_path):
-            logger.info(f" [Another {func.__name__} is already running]")
+        file_lock = check_running(func.__name__)
+        if not file_lock:
+            logger.info(f">> [Another {func.__name__} is already running]")
             return False
         func()
-
+        if file_lock:
+            file_lock.close()
+        return True
     return inner_function
 
 
