@@ -249,7 +249,6 @@ class WordPressClient:
         from .models import Album, CMusic
 
         # Create media for this album
-        first_music = self.instance.cmusic_set.first()
         media_id = self.create_media()
 
         musics_link = "".join([
@@ -383,13 +382,17 @@ def fix_link_128():
     ).exclude(
         link_mp3_128__icontains='ganja'
     ):
-        correct_link = c.link_mp3_320
-        print("320 link", c.link_mp3_320)
-        correct_link.replace('Archive/', 'Archive/128/')
-        correct_link.replace(correct_link[correct_link.find('Single/'):], c.link_mp3_128)
-        print("128 link", c.link_mp3_128)
-        c.link_mp3_128 = correct_link
-        print("corrected link", c.link_mp3_128)
-        c.save()
-
+        if len(c.link_mp3_128) > 0:
+            correct_link = c.link_mp3_320
+            print(c.id)
+            print("page url ", c.page_url)
+            print("320 link", c.link_mp3_320)
+            correct_link.replace('Archive/', 'Archive/128/')
+            correct_link.replace(correct_link[correct_link.find('Single/'):], c.link_mp3_128)
+            print("128 link", c.link_mp3_128)
+            c.link_mp3_128 = correct_link
+            print("corrected link", c.link_mp3_128, '\n')
+            # c.save()
+        else:
+            print("Empty 128 link")
 

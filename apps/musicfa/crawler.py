@@ -84,7 +84,10 @@ class Crawler:
         :return: File to save in CMusic object.
         """
         try:
-            logger.debug(f'[downloading the URL: {url}]')
+            logger.debug(f'[downloading content]-[URL: {url}]')
+            if not url.startswith('htt'):
+                url = f"http://{url}"
+                logger.debug(f'[invalid url fixed]-[URL: {url}]')
             r = requests.get(url, allow_redirects=False)
         except Exception as e:
             logger.error(f'[downloading file failed]-[exc: {e}]')
@@ -299,6 +302,7 @@ class NicMusicCrawler(Crawler):
                         self.create_music(**kwargs)
                 else:
                     logger.info(f'[duplicate post found]-[URL: {url}]')
+                    return
             except Exception as e:
                 logger.warning(f'[failed to collect music]-[exc: {e}]-[website: {self.website_name}]')
                 continue

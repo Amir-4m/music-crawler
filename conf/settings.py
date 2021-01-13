@@ -42,7 +42,8 @@ INSTALLED_APPS = [
 
     # third parties
     'django_better_admin_arrayfield',
-    'ckeditor'
+    'ckeditor',
+    'admin_auto_filters'
 ]
 
 MIDDLEWARE = [
