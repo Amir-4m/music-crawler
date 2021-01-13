@@ -85,9 +85,6 @@ class Crawler:
         """
         try:
             logger.debug(f'[downloading content]-[URL: {url}]')
-            if not url.startswith('htt'):
-                url = f"http://{url}"
-                logger.debug(f'[invalid url fixed]-[URL: {url}]')
             r = requests.get(url, allow_redirects=False)
         except Exception as e:
             logger.error(f'[downloading file failed]-[exc: {e}]')
