@@ -67,8 +67,9 @@ def collect_musics_nic():
     Collecting the single musics of nicmusic after that downloading the files of them.
     :return: None
     """
-    NicMusicCrawler().collect_musics()
-    NicMusicCrawler().collect_files()
+    crawler = NicMusicCrawler()
+    crawler.collect_musics()
+    crawler.collect_files()
 
 
 @stop_duplicate_task
@@ -77,5 +78,6 @@ def collect_musics_ganja():
     Collecting the albums and single musics of ganja2music after that downloading the files of them.
     :return: None
     """
-    Ganja2MusicCrawler().collect_musics()
-    Ganja2MusicCrawler().collect_files()
+    crawler = Ganja2MusicCrawler()
+    crawler.collect_musics()
+    crawler.collect_files()
