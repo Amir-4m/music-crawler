@@ -201,7 +201,7 @@ LOGGING = {
     'loggers': {
         'apps': {
             'level': 'DEBUG',
-            'handlers': ['file'],
+            'handlers': ['file', 'console'] if DEVEL else ['file'],
             'propagate': True,
         },
     },

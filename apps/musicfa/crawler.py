@@ -331,7 +331,7 @@ class Ganja2MusicCrawler(Crawler):
             if '320' in link.get_text():
                 link_320 = link.attrs['href']
             elif '128' in link.get_text():
-                link_128 = link.attrs.get('href')
+                link_128 = link.attrs['href']
         return link_128, link_320
 
     def get_thumbnail(self, soup):

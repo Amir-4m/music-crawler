@@ -226,7 +226,7 @@ class WordPressClient:
             else:
                 logger.debug(f'[file_mp3_128 field is empty]-[obj: {self.instance}]')
                 fields['fields']['link_128'] = self.download_music_file(
-                    self.instance.link_mp3_128, 'link_mp3_128', self.instance
+                    self.instance.link_mp3_128, 'file_mp3_128', self.instance
                 ).get_absolute_url_128()
 
             # 320 link
