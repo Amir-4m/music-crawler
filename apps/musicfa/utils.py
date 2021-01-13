@@ -226,7 +226,7 @@ class WordPressClient:
             else:
                 logger.debug(f'[file_mp3_128 field is empty]-[obj: {self.instance}]')
                 fields['fields']['link_128'] = self.download_music_file(
-                    self.instance.link_mp3_128, 'link_mp3_128', self.instance
+                    self.instance.link_mp3_128, 'file_mp3_128', self.instance
                 ).get_absolute_url_128()
 
             # 320 link
@@ -249,7 +249,6 @@ class WordPressClient:
         from .models import Album, CMusic
 
         # Create media for this album
-        first_music = self.instance.cmusic_set.first()
         media_id = self.create_media()
 
         musics_link = "".join([
@@ -289,8 +288,8 @@ class WordPressClient:
                 fields=dict(
                     artist_name_persian=self.instance.artist.name_fa,
                     artist_name_english=self.instance.artist.name_en,
-                    music_name_persian=first_music.song_name_fa,
-                    music_name_english=first_music.song_name_en,
+                    music_name_persian=self.instance.album_name_en,
+                    music_name_english=self.instance.album_name_fa,
                     album_link=musics_link
                 ))
             self.update_acf_fields(fields, f"{self.urls['acf_fields_album']}{self.instance.wp_post_id}/")
@@ -367,3 +366,33 @@ class WordPressClient:
         else:
             logger.error(
                 f'[updating the ACF fields failed]-[wordpress id: {self.instance.wp_post_id}]-[status code: {req.status_code}]')
+
+
+def delete_empty_albums():
+    from .models import Album
+
+    Album.objects.filter(cmusic__isnull=True).delete()
+
+
+def fix_link_128():
+    from .models import CMusic
+
+    for c in CMusic.objects.filter(
+            page_url__icontains='ganja'
+    ).exclude(
+        link_mp3_128__icontains='ganja'
+    ):
+        if len(c.link_mp3_128) > 0:
+            correct_link = c.link_mp3_320
+            print(c.id)
+            print("page url ", c.page_url)
+            print("320 link", c.link_mp3_320)
+            correct_link.replace('Archive/', 'Archive/128/')
+            correct_link.replace(correct_link[correct_link.find('Single/'):], c.link_mp3_128)
+            print("128 link", c.link_mp3_128)
+            c.link_mp3_128 = correct_link
+            print("corrected link", c.link_mp3_128, '\n')
+            # c.save()
+        else:
+            print("Empty 128 link")
+

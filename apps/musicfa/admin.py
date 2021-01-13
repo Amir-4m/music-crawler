@@ -9,6 +9,34 @@ from .tasks import create_single_music_post_task, create_album_post_task
 from .views import start_new_crawl
 from .utils import checking_task_status
 from .forms import CMusicForm
+from .admin_filters import AlbumFilter, ArtistFilter
+
+
+class AutoFilter:
+    """
+    `admin.ModelAdmin` classes that has a filter field by `admin_auto_filters.filters.AutocompleteFilter`
+     should extends from this class.
+    """
+    class Media:
+        pass
+
+
+class ModelAdminDisplayTaskStatus(admin.ModelAdmin):
+
+    def changelist_view(self, request, extra_context=None):
+        response = super().changelist_view(request, extra_context)
+        if request.method == 'GET':
+            response.context_data['crawl_status_nic'] = checking_task_status('collect_musics_nic')
+            response.context_data['crawl_status_ganja'] = checking_task_status('collect_musics_ganja')
+        return response
+
+    def get_urls(self):
+        from django.urls import path
+        url_patterns = [
+            path('start-crawl/<str:site_name>/', start_new_crawl, name='start-crawl')
+        ]
+        url_patterns += super().get_urls()
+        return url_patterns
 
 
 class CMusicInline(admin.TabularInline):
@@ -30,14 +58,14 @@ class CMusicInline(admin.TabularInline):
 
 
 @admin.register(CMusic)
-class CMusicAdmin(admin.ModelAdmin):
+class CMusicAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
     form = CMusicForm
-    raw_id_fields = ['artist']
     change_form_template = 'changes.html'
     change_list_template = 'change_list.html'
-    actions = ['send_to_word_press']
-    list_display = ("name", 'artist', "title", "post_type", 'status', 'is_downloaded')
-    list_filter = ['is_downloaded', 'post_type']
+    raw_id_fields = ['artist']
+    actions = ['send_to_WordPress']
+    list_display = ("name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time')
+    list_filter = [ArtistFilter, AlbumFilter, 'is_downloaded', 'post_type']
     search_fields = ['song_name_fa', 'song_name_en']
     readonly_fields = [
         'album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date', 'album', 'post_type'
@@ -59,21 +87,6 @@ class CMusicAdmin(admin.ModelAdmin):
         )})
     )
 
-    def get_urls(self):
-        from django.urls import path
-        url_patterns = [
-            path('start-crawl/<str:site_name>/', start_new_crawl, name='start-crawl')
-        ]
-        url_patterns += super().get_urls()
-        return url_patterns
-
-    def changelist_view(self, request, extra_context=None):
-        response = super(CMusicAdmin, self).changelist_view(request, extra_context)
-        if request.method == 'GET':
-            response.context_data['crawl_status_nic'] = checking_task_status('collect_musics_nic')
-            response.context_data['crawl_status_ganja'] = checking_task_status('collect_musics_ganja')
-        return response
-
     def change_view(self, request, object_id, **kwargs):
         if '_sned_to_wp' in request.POST:
             instance = self.get_object(request, object_id)
@@ -81,8 +94,7 @@ class CMusicAdmin(admin.ModelAdmin):
                 create_single_music_post_task.apply_async(args=(object_id,))
                 messages.info(request, _('creating new single music on wordpress'))
             else:
-                create_album_post_task.apply_async(args=(instance.album_id,))
-                messages.info(request, _('creating new album on wordpress'))
+                messages.error(request, _('please send the album of this music' + f'{instance.album}'))
         return super().change_view(request, object_id, **kwargs)
 
     def get_thumbnail(self, obj):
@@ -93,7 +105,7 @@ class CMusicAdmin(admin.ModelAdmin):
         )
     get_thumbnail.short_description = _('current thumbnail')
 
-    def send_to_word_press(self, request, queryset):
+    def send_to_WordPress(self, request, queryset):
         # creating the album post from tracks of it
         create_album_post_task.apply_async(
             args=tuple(
@@ -115,15 +127,17 @@ class CMusicAdmin(admin.ModelAdmin):
 
 
 @admin.register(Album)
-class AlbumAdmin(admin.ModelAdmin):
+class AlbumAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
+    change_form_template = 'changes.html'
+    change_list_template = 'change_list.html'
     inlines = [CMusicInline]
     raw_id_fields = ['artist']
-    list_display = ("name", 'artist', 'status')
+    list_display = ("name", 'artist', 'status', 'created_time', 'get_track_number')
     search_fields = ['album_name_en', 'album_name_fa', 'title']
-    list_filter = ['is_downloaded']
+    list_filter = [ArtistFilter, 'is_downloaded']
     ordering = ['-id']
     readonly_fields = ['get_thumbnail', 'site_id', 'wp_post_id']
-    actions = ['send_to_word_press']
+    actions = ['send_to_WordPress']
     fieldsets = (
         ('Album', {'fields': ('title', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
         (
@@ -136,20 +150,32 @@ class AlbumAdmin(admin.ModelAdmin):
         )}),
     )
 
+    def change_view(self, request, object_id, **kwargs):
+        if '_sned_to_wp' in request.POST:
+            create_album_post_task.apply_async(args=(object_id,))
+            messages.info(request, _('creating new album on wordpress'))
+        return super().change_view(request, object_id, **kwargs)
+    # custom fields
+
     def get_thumbnail(self, obj):
         from django.utils.html import escape
         return mark_safe(f'<img src="{escape(obj.file_thumbnail.url if obj.file_thumbnail else obj.link_thumbnail)}"'
                          f' height="20%" width="20%"/>')
     get_thumbnail.short_description = _('current thumbnail')
 
-    def send_to_word_press(self, request, queryset):
+    def get_track_number(self, obj):
+        return CMusic.objects.filter(album=obj).count()
+    get_track_number.short_description = _('current thumbnail')
+
+    # actions
+    def send_to_WordPress(self, request, queryset):
         create_album_post_task.apply_async(args=([q.id for q in queryset]))
         messages.info(request, _('selected albums created at wordpress!'))
 
 
 @admin.register(Artist)
 class ArtistAdmin(admin.ModelAdmin, DynamicArrayMixin):
-    list_display = ['name', 'name_en', 'name_fa']
+    list_display = ['name', 'name_en', 'name_fa', 'created_time']
     search_fields = ['name_en', 'name_fa']
     ordering = ['-id']
 

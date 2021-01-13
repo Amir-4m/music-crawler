@@ -6,7 +6,7 @@ from .models import CMusic
 
 
 class CMusicForm(forms.ModelForm):
-    lyrics = forms.CharField(widget=CKEditorWidget())
+    lyrics = forms.CharField(widget=CKEditorWidget(), required=False)
 
     class Meta:
         model = CMusic
