@@ -1,8 +1,9 @@
 import re
 import logging
+from datetime import datetime
 from urllib.parse import unquote, urlparse
 
-from datetime import datetime
+from django.core.validators import URLValidator
 from django.core.files import File
 from django.core.files.temp import NamedTemporaryFile
 
@@ -85,9 +86,6 @@ class Crawler:
         """
         try:
             logger.debug(f'[downloading content]-[URL: {url}]')
-            if not url.startswith('htt'):
-                url = f"http://{url}"
-                logger.debug(f'[invalid url fixed]-[URL: {url}]')
             r = requests.get(url, allow_redirects=False)
         except Exception as e:
             logger.error(f'[downloading file failed]-[exc: {e}]')
@@ -181,6 +179,24 @@ class Crawler:
         """
         return self.is_duplicate(CMusic, site_id)
 
+    def is_valid_url(self, url):
+        val = URLValidator()
+        try:
+            val(url)
+            return True
+        except Exception as e:
+            logger.warning(f'[invalid URL found]-[URL: {url}]-[website: {self.website_name}]-[exc: {e}]')
+            return False
+
+    def clean_url(self, url):
+        pass
+
+    def invalid_url_found_log(self, invalid_url, post_url, field_name):
+        logger.warning(
+            f'[invalid url found for {field_name} file... skipping this post]-[Post URL: {post_url}]'
+            f'-[Invalid URL: {invalid_url}]-[website: {self.website_name}]'
+        )
+
 
 class NicMusicCrawler(Crawler):
     category_id = 0
@@ -217,8 +233,8 @@ class NicMusicCrawler(Crawler):
 
     def collect_musics(self):
         super().collect_musics()
-        for url in self.collect_links():
-            page = self.make_request(url)
+        for post_url in self.collect_links():
+            page = self.make_request(post_url)
             try:
                 soup = BeautifulSoup(page.text, "html.parser")
 
@@ -269,11 +285,27 @@ class NicMusicCrawler(Crawler):
                     start_index = lyrics.index("دانلود در ادامه مطلب")
                     lyrics = lyrics[start_index + 21:]
                     lyrics = lyrics.strip()
+
+                # Getting Songs URLs 128, 320
                 quality_128 = soup.find("a", class_="dl-128").attrs["href"].encode().decode('utf-8-sig')
                 quality_320 = soup.find("a", class_="dl-320").attrs["href"].encode().decode('utf-8-sig')
+                # Validating the files URL
+                if not self.is_valid_url(quality_128):
+                    self.invalid_url_found_log(quality_128, post_url, 'music 128')
+                    continue
+                if not self.is_valid_url(quality_320):
+                    self.invalid_url_found_log(quality_320, post_url, 'music 320')
+                    continue
+
+                # thumbnail link
                 thumbnail = soup.find("img", class_=["size-full", "size-medium"]).attrs[
                     "data-src"].encode().decode(
                     'utf-8-sig')
+                # validating thumbnail
+                if not self.is_valid_url(thumbnail):
+                    self.invalid_url_found_log(thumbnail, post_url, 'thumbnail')
+                    continue
+
                 publish_date = self.fix_jdate(soup.find("div", class_="times").get_text().strip(), months)
                 publish_date = datetime.strptime(publish_date, '%m %d, %Y')
 
@@ -295,13 +327,13 @@ class NicMusicCrawler(Crawler):
                                 "link_mp3_320": quality_320,
                                 "link_thumbnail": thumbnail,
                                 "published_date": publish_date,
-                                'page_url': url,
+                                'page_url': post_url,
                                 'wp_category_id': self.category_id
                             }
                         )
                         self.create_music(**kwargs)
                 else:
-                    logger.info(f'[duplicate post found]-[URL: {url}]')
+                    logger.info(f'[duplicate post found]-[URL: {post_url}]')
                     return
             except Exception as e:
                 logger.warning(f'[failed to collect music]-[exc: {e}]-[website: {self.website_name}]')
@@ -332,7 +364,7 @@ class Ganja2MusicCrawler(Crawler):
                 link_320 = link.attrs['href']
             elif '128' in link.get_text():
                 link_128 = link.attrs['href']
-        return link_128, link_320
+        return self.clean_url(link_128), self.clean_url(link_320)
 
     def get_thumbnail(self, soup):
         from .utils import url_join
@@ -375,8 +407,22 @@ class Ganja2MusicCrawler(Crawler):
         for post_page_url in self.collect_link_singles():
             try:
                 soup = BeautifulSoup(self.make_request(post_page_url).text, "html.parser")
+
+                # Getting links of this post
                 link_128, link_320 = self.get_download_link(soup)
+
+                if not self.is_valid_url(link_128):
+                    self.invalid_url_found_log(link_128, post_page_url, 'music 128')
+                    continue
+                if not self.is_valid_url(link_320):
+                    self.invalid_url_found_log(link_320, post_page_url, 'music 320')
+                    continue
+
                 link_thumbnail = self.get_thumbnail(soup)
+                if not self.is_valid_url(link_thumbnail):
+                    self.invalid_url_found_log(link_thumbnail, post_page_url, 'thumbnail')
+                    continue
+
                 song_name_en, artist_name_en, publish_date = self.get_content_section_info(soup)
                 title = self.get_title(soup)
 
@@ -444,11 +490,12 @@ class Ganja2MusicCrawler(Crawler):
                     album = self.create_album(site_id, defaults)
                     for index, m in enumerate(album_musics):
                         link_mp3_320 = m.find('div', class_='rightf3').find('a').attrs['href']
+                        link_mp3_128 = m.find('div', class_='rightf3 plyiter').find('a').attrs['href']
                         kwargs = dict(
                             # creating custom site id for `album-musics` type from album site id
                             site_id=f"{int(site_id) + 1001 + index}",
                             defaults=dict(
-                                link_mp3_128=m.find('div', class_='rightf3 plyiter').find('a').attrs['href'],
+                                link_mp3_128=link_mp3_128,
                                 link_mp3_320=link_mp3_320,
                                 album=album,
                                 artist_id=album.artist_id,
@@ -523,4 +570,9 @@ class Ganja2MusicCrawler(Crawler):
                 c.save()
             except Exception as e:
                 logger.error(f'[collect files failed]-[exc: {e}]-[album: {c}]')
+
+    def clean_url(self, url):
+        if url.startswith('dl.ganja2music.com'):
+            return f'http://{url}'
+        return url
 
