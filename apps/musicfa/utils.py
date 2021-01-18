@@ -214,7 +214,7 @@ class WordPressClient:
                 ))
             # 128 link
             if self.instance.file_mp3_128:
-                fields['fields']['link_128'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_128.url)
+                fields['fields']['link_128'] = url_join(settings.FTP_MEDIA_URL, self.instance.file_mp3_128.url)
             else:
                 logger.debug(f'[file_mp3_128 field is empty]-[obj: {self.instance}]')
                 fields['fields']['link_128'] = self.download_music_file(
@@ -223,7 +223,7 @@ class WordPressClient:
 
             # 320 link
             if self.instance.file_mp3_320:
-                fields['fields']['link_320'] = url_join(settings.SITE_DOMAIN, self.instance.file_mp3_320.url)
+                fields['fields']['link_320'] = url_join(settings.FTP_MEDIA_URL, self.instance.file_mp3_320.url)
             else:
                 logger.debug(f'[file_mp3_320 field is empty]-[obj: {self.instance}]')
                 fields['fields']['link_320'] = self.download_music_file(

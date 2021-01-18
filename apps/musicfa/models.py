@@ -139,8 +139,8 @@ class CMusic(models.Model):
 
     def get_absolute_url_128(self):
         if self.file_mp3_128:
-            return url_join(settings.SITE_DOMAIN, self.file_mp3_128.url)
+            return url_join(settings.FTP_MEDIA_URL, self.file_mp3_128.url)
 
     def get_absolute_url_320(self):
         if self.file_mp3_320:
-            return url_join(settings.SITE_DOMAIN, self.file_mp3_320.url)
+            return url_join(settings.FTP_MEDIA_URL, self.file_mp3_320.url)

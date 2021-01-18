@@ -158,7 +158,7 @@ WP_USER = config('WP_USER', cast=str)
 WP_PASS = config('WP_PASS', cast=str)
 WP_BASE_URL = config('WP_BASE_URL', cast=str)
 
-SITE_DOMAIN = config('SITE_DOMAIN')
+FTP_MEDIA_URL = config('FTP_MEDIA_URL')
 
 # Logger Configuration
 LOG_DIR = BASE_DIR / 'logs'
