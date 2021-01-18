@@ -137,10 +137,10 @@ class CMusic(models.Model):
     def get_artist_info(self):
         return f"{self.artist.name_fa}\n{self.artist.name_en}"
 
-    def get_absolute_url_128(self):
+    def get_absolute_wp_url_128(self):
         if self.file_mp3_128:
-            return url_join(settings.FTP_MEDIA_URL, self.file_mp3_128.url)
+            return url_join(settings.FTP_MEDIA_URL, self.file_mp3_128.url[14:])
 
-    def get_absolute_url_320(self):
+    def get_absolute_wp_url_320(self):
         if self.file_mp3_320:
-            return url_join(settings.FTP_MEDIA_URL, self.file_mp3_320.url)
+            return url_join(settings.FTP_MEDIA_URL, self.file_mp3_320.url[14:])
