@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from django.contrib import admin, messages
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
@@ -64,8 +66,10 @@ class CMusicAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
     change_list_template = 'change_list.html'
     raw_id_fields = ['artist']
     actions = ['send_to_WordPress']
-    list_display = ("name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time')
-    list_filter = [ArtistFilter, AlbumFilter, 'is_downloaded', 'post_type']
+    list_display = (
+        "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'get_website_name'
+    )
+    list_filter = [ArtistFilter, AlbumFilter, 'is_downloaded', 'post_type', 'status']
     search_fields = ['song_name_fa', 'song_name_en']
     readonly_fields = [
         'album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date', 'album', 'post_type'
@@ -125,6 +129,10 @@ class CMusicAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
         )
         messages.info(request, _('selected musics created at wordpress!'))
 
+    def get_website_name(self, obj):
+        return urlparse(obj.page_url).netloc
+    get_website_name.short_description = _('website name')
+
 
 @admin.register(Album)
 class AlbumAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
@@ -132,9 +140,9 @@ class AlbumAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
     change_list_template = 'change_list.html'
     inlines = [CMusicInline]
     raw_id_fields = ['artist']
-    list_display = ("name", 'artist', 'status', 'created_time', 'get_track_number')
+    list_display = ("name", 'artist', 'status', 'created_time', 'get_track_number', 'get_website_name')
     search_fields = ['album_name_en', 'album_name_fa', 'title']
-    list_filter = [ArtistFilter, 'is_downloaded']
+    list_filter = [ArtistFilter, 'is_downloaded', 'status']
     ordering = ['-id']
     readonly_fields = ['get_thumbnail', 'site_id', 'wp_post_id']
     actions = ['send_to_WordPress']
@@ -171,6 +179,10 @@ class AlbumAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
     def send_to_WordPress(self, request, queryset):
         create_album_post_task.apply_async(args=([q.id for q in queryset]))
         messages.info(request, _('selected albums created at wordpress!'))
+
+    def get_website_name(self, obj):
+        return urlparse(obj.page_url).netloc
+    get_website_name.short_description = _('website name')
 
 
 @admin.register(Artist)
