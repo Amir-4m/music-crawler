@@ -5,8 +5,10 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
 from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
+from import_export.admin import ExportActionMixin
 
 from .models import CMusic, Album, Artist
+from .export_admin import AlbumResource, CMusicResource
 from .tasks import create_single_music_post_task, create_album_post_task
 from .views import start_new_crawl
 from .utils import checking_task_status
@@ -21,24 +23,6 @@ class AutoFilter:
     """
     class Media:
         pass
-
-
-class ModelAdminDisplayTaskStatus(admin.ModelAdmin):
-
-    def changelist_view(self, request, extra_context=None):
-        response = super().changelist_view(request, extra_context)
-        if request.method == 'GET':
-            response.context_data['crawl_status_nic'] = checking_task_status('collect_musics_nic')
-            response.context_data['crawl_status_ganja'] = checking_task_status('collect_musics_ganja')
-        return response
-
-    def get_urls(self):
-        from django.urls import path
-        url_patterns = [
-            path('start-crawl/<str:site_name>/', start_new_crawl, name='start-crawl')
-        ]
-        url_patterns += super().get_urls()
-        return url_patterns
 
 
 class CMusicInline(admin.TabularInline):
@@ -59,15 +43,34 @@ class CMusicInline(admin.TabularInline):
     get_download_link.short_description = _('download link')
 
 
+class ModelAdminDisplayTaskStatus(admin.ModelAdmin, AutoFilter):
+
+    def changelist_view(self, request, extra_context=None):
+        response = super().changelist_view(request, extra_context)
+        if request.method == 'GET':
+            response.context_data['crawl_status_nic'] = checking_task_status('collect_musics_nic')
+            response.context_data['crawl_status_ganja'] = checking_task_status('collect_musics_ganja')
+        return response
+
+    def get_urls(self):
+        from django.urls import path
+        url_patterns = [
+            path('start-crawl/<str:site_name>/', start_new_crawl, name='start-crawl')
+        ]
+        url_patterns += super().get_urls()
+        return url_patterns
+
+
 @admin.register(CMusic)
-class CMusicAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
+class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     form = CMusicForm
+    resource_class = CMusicResource
     change_form_template = 'changes.html'
     change_list_template = 'change_list.html'
     raw_id_fields = ['artist']
-    actions = ['send_to_WordPress']
+    actions = (*ExportActionMixin.actions, 'send_to_WordPress')
     list_display = (
-        "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'get_website_name'
+        "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'website_name'
     )
     list_filter = [ArtistFilter, AlbumFilter, 'is_downloaded', 'post_type', 'status']
     search_fields = ['song_name_fa', 'song_name_en']
@@ -129,23 +132,20 @@ class CMusicAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
         )
         messages.info(request, _('selected musics created at wordpress!'))
 
-    def get_website_name(self, obj):
-        return urlparse(obj.page_url).netloc
-    get_website_name.short_description = _('website name')
-
 
 @admin.register(Album)
-class AlbumAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
+class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
+    resource_class = AlbumResource
     change_form_template = 'changes.html'
     change_list_template = 'change_list.html'
     inlines = [CMusicInline]
     raw_id_fields = ['artist']
-    list_display = ("name", 'artist', 'status', 'created_time', 'get_track_number', 'get_website_name')
+    list_display = ("name", 'artist', 'status', 'created_time', 'get_track_number', 'website_name')
     search_fields = ['album_name_en', 'album_name_fa', 'title']
     list_filter = [ArtistFilter, 'is_downloaded', 'status']
     ordering = ['-id']
     readonly_fields = ['get_thumbnail', 'site_id', 'wp_post_id']
-    actions = ['send_to_WordPress']
+    actions = (*ExportActionMixin.actions, 'send_to_WordPress')
     fieldsets = (
         ('Album', {'fields': ('title', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
         (
@@ -179,10 +179,6 @@ class AlbumAdmin(ModelAdminDisplayTaskStatus, AutoFilter):
     def send_to_WordPress(self, request, queryset):
         create_album_post_task.apply_async(args=([q.id for q in queryset]))
         messages.info(request, _('selected albums created at wordpress!'))
-
-    def get_website_name(self, obj):
-        return urlparse(obj.page_url).netloc
-    get_website_name.short_description = _('website name')
 
 
 @admin.register(Artist)

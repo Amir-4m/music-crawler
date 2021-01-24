@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
@@ -66,6 +68,10 @@ class Album(models.Model):
     def name(self):
         return self.album_name_fa or self.album_name_en or self.id
 
+    @property
+    def website_name(self):
+        return urlparse(self.page_url).netloc
+
     def __str__(self):
         return self.name
 
@@ -130,6 +136,10 @@ class CMusic(models.Model):
     @property
     def name(self):
         return self.song_name_fa or self.song_name_en or self.id
+
+    @property
+    def website_name(self):
+        return urlparse(self.page_url).netloc
 
     def __str__(self):
         return self.name
