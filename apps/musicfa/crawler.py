@@ -438,7 +438,7 @@ class Ganja2MusicCrawler(Crawler):
                         link_mp3_128=link_128,
                         link_mp3_320=link_320,
                         link_thumbnail=link_thumbnail,
-                        lyrics=str(lyric) if lyric else '',
+                        lyrics=lyric.decode_contents() if lyric else '',
                         title=title,
                         published_date=publish_date,
                         post_type=CMusic.SINGLE_TYPE,
