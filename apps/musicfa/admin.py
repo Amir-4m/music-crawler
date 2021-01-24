@@ -8,7 +8,7 @@ from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
 from import_export.admin import ExportActionMixin
 
 from .models import CMusic, Album, Artist
-from .export_admin import AlbumResource, CMusicResource
+from .export_admin import AlbumResource, CMusicResource, ArtistResource
 from .tasks import create_single_music_post_task, create_album_post_task
 from .views import start_new_crawl
 from .utils import checking_task_status
@@ -182,7 +182,8 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
 
 
 @admin.register(Artist)
-class ArtistAdmin(admin.ModelAdmin, DynamicArrayMixin):
+class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
+    resource_class = ArtistResource
     list_display = ['name', 'name_en', 'name_fa', 'created_time']
     search_fields = ['name_en', 'name_fa']
     ordering = ['-id']
