@@ -184,9 +184,9 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
 @admin.register(Artist)
 class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     resource_class = ArtistResource
-    list_display = ['name', 'name_en', 'name_fa', 'created_time']
+    list_display = ['name', 'name_en', 'note', 'name_fa', 'created_time']
     search_fields = ['name_en', 'name_fa']
     ordering = ['-id']
 
 
-admin.site.empty_value_display = "Unknown"
+admin.site.empty_value_display = "Empty"

@@ -16,6 +16,7 @@ class Artist(models.Model):
     name_en = models.CharField(_('full name en'), max_length=150)
     name_fa = models.CharField(_('full name fa'), max_length=150, blank=True)
 
+    note = models.CharField(_('note'), max_length=150, blank=True)
     correct_names = ArrayField(models.CharField(max_length=150), verbose_name=_('correct names'), null=True)
 
     @property
