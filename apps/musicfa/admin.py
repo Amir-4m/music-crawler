@@ -185,7 +185,7 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
 class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     resource_class = ArtistResource
     list_display = ['name', 'name_en', 'note', 'name_fa', 'created_time']
-    search_fields = ['name_en', 'name_fa']
+    search_fields = ['name_en', 'name_fa', 'note']
     ordering = ['-id']
 
 
