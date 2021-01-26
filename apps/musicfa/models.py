@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
@@ -14,6 +16,7 @@ class Artist(models.Model):
     name_en = models.CharField(_('full name en'), max_length=150)
     name_fa = models.CharField(_('full name fa'), max_length=150, blank=True)
 
+    note = models.CharField(_('note'), max_length=150, blank=True)
     correct_names = ArrayField(models.CharField(max_length=150), verbose_name=_('correct names'), null=True)
 
     @property
@@ -65,6 +68,10 @@ class Album(models.Model):
     @property
     def name(self):
         return self.album_name_fa or self.album_name_en or self.id
+
+    @property
+    def website_name(self):
+        return urlparse(self.page_url).netloc
 
     def __str__(self):
         return self.name
@@ -130,6 +137,10 @@ class CMusic(models.Model):
     @property
     def name(self):
         return self.song_name_fa or self.song_name_en or self.id
+
+    @property
+    def website_name(self):
+        return urlparse(self.page_url).netloc
 
     def __str__(self):
         return self.name

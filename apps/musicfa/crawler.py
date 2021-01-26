@@ -427,9 +427,7 @@ class Ganja2MusicCrawler(Crawler):
                 title = self.get_title(soup)
 
                 # Lyric
-                lyric_text = soup.find('div', class_='tab-pane fade in active').find('p')
-                if lyric_text:
-                    lyric_text = lyric_text.get_text()
+                lyric = soup.find('div', class_='tab-pane fade in active').find('p')
 
                 artist = self.create_artist(name_en=artist_name_en)  # get or create Artist
                 kwargs = dict(
@@ -440,7 +438,7 @@ class Ganja2MusicCrawler(Crawler):
                         link_mp3_128=link_128,
                         link_mp3_320=link_320,
                         link_thumbnail=link_thumbnail,
-                        lyrics=lyric_text or '',
+                        lyrics=lyric.decode_contents() if lyric else '',
                         title=title,
                         published_date=publish_date,
                         post_type=CMusic.SINGLE_TYPE,
