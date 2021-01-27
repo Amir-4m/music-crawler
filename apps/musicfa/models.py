@@ -67,7 +67,7 @@ class Album(models.Model):
 
     @property
     def name(self):
-        return self.album_name_fa or self.album_name_en or self.id
+        return self.album_name_fa or self.album_name_en or str(self.id)
 
     @property
     def website_name(self):
@@ -136,7 +136,7 @@ class CMusic(models.Model):
 
     @property
     def name(self):
-        return self.song_name_fa or self.song_name_en or self.id
+        return self.song_name_fa or self.song_name_en or str(self.id)
 
     @property
     def website_name(self):
