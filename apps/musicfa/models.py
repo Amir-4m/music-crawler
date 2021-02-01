@@ -13,7 +13,7 @@ class Artist(models.Model):
     created_time = models.DateTimeField(_('created time'), auto_now_add=True)
     updated_time = models.DateTimeField(_('updated time'), auto_now=True)
 
-    name_en = models.CharField(_('full name en'), max_length=150)
+    name_en = models.CharField(_('full name en'), max_length=150, unique=True)
     name_fa = models.CharField(_('full name fa'), max_length=150, blank=True)
 
     note = models.CharField(_('note'), max_length=150, blank=True)
@@ -67,7 +67,7 @@ class Album(models.Model):
 
     @property
     def name(self):
-        return self.album_name_fa or self.album_name_en or self.id
+        return self.album_name_fa or self.album_name_en or str(self.id)
 
     @property
     def website_name(self):
@@ -136,7 +136,7 @@ class CMusic(models.Model):
 
     @property
     def name(self):
-        return self.song_name_fa or self.song_name_en or self.id
+        return self.song_name_fa or self.song_name_en or str(self.id)
 
     @property
     def website_name(self):
