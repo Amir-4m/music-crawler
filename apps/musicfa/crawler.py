@@ -6,6 +6,7 @@ from urllib.parse import unquote, urlparse
 from django.core.validators import URLValidator
 from django.core.files import File
 from django.core.files.temp import NamedTemporaryFile
+from django.db.models import Q
 
 import requests
 from bs4 import BeautifulSoup
@@ -142,17 +143,21 @@ class Crawler:
         return album
 
     def create_artist(self, **kwargs):
+        artist = None
+        created = False
         correct_names = [value for key, value in kwargs.items()]
-        artist = Artist.objects.filter(**kwargs).first()
-        if artist is not None:
-            return artist
+        kwargs['correct_names'] = correct_names
 
         try:
-            kwargs['correct_names'] = correct_names
-            artist, created = Artist.objects.get_or_create(
-                correct_names__overlap=correct_names,
-                defaults=kwargs
-            )
+            for name in correct_names:
+                artist = Artist.objects.filter(correct_names__icontains=name).first()
+                if artist is not None:
+                    break
+
+            if artist is None:
+                artist = Artist.objects.create(**kwargs)
+                created = True
+
         except Exception as e:
             logger.error(f"[creating artist failed]-[exc: {e}]-[kwargs: {kwargs}]")
             return
