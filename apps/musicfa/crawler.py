@@ -149,8 +149,12 @@ class Crawler:
 
         try:
             kwargs['correct_names'] = correct_names
+            filter_kwargs = dict(
+                correct_names__icontains=correct_names[0]
+            ) if len(correct_names) == 1 else dict(correct_names__overlap=correct_names)
+
             artist, created = Artist.objects.get_or_create(
-                correct_names__overlap=correct_names,
+                **filter_kwargs,
                 defaults=kwargs
             )
         except Exception as e:
