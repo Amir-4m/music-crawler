@@ -145,7 +145,7 @@ class Crawler:
     def create_artist(self, **kwargs):
         artist = None
         created = False
-        correct_names = [value.lower() for key, value in kwargs.items()]
+        correct_names = [value.strip() for key, value in kwargs.items()]
         kwargs['correct_names'] = correct_names
 
         try:
@@ -314,7 +314,7 @@ class NicMusicCrawler(Crawler):
                 publish_date = self.fix_jdate(soup.find("div", class_="times").get_text().strip(), months)
                 publish_date = datetime.strptime(publish_date, '%m %d, %Y')
 
-                artist = self.create_artist(name_en=artist_name_en.strip(), name_fa=artist_name_fa.strip())
+                artist = self.create_artist(name_en=artist_name_en, name_fa=artist_name_fa)
                 site_id = self.get_site_id(soup)
 
                 if not self.is_new_post_single(site_id):
@@ -434,7 +434,7 @@ class Ganja2MusicCrawler(Crawler):
                 # Lyric
                 lyric = soup.find('div', class_='tab-pane fade in active').find('p')
 
-                artist = self.create_artist(name_en=artist_name_en.strip())  # get or create Artist
+                artist = self.create_artist(name_en=artist_name_en)  # get or create Artist
                 kwargs = dict(
                     site_id=self.get_obj_site_id(post_page_url),
                     defaults=dict(
@@ -472,7 +472,7 @@ class Ganja2MusicCrawler(Crawler):
                 album_name_en, artist_name_en, publish_date = self.get_content_section_info(soup)
                 title = self.get_title(soup)
                 site_id = self.get_obj_site_id(post_page_url)
-                artist = self.create_artist(name_en=artist_name_en.strip())
+                artist = self.create_artist(name_en=artist_name_en)
 
                 defaults = dict(
                     artist=artist,
