@@ -145,7 +145,7 @@ class Crawler:
     def create_artist(self, **kwargs):
         artist = None
         created = False
-        correct_names = [value for key, value in kwargs.items()]
+        correct_names = [value.strip() for key, value in kwargs.items()]
         kwargs['correct_names'] = correct_names
 
         try:
