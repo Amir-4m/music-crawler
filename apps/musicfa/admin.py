@@ -1,5 +1,3 @@
-from urllib.parse import urlparse
-
 from django.contrib import admin, messages
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
@@ -9,7 +7,7 @@ from import_export.admin import ExportActionMixin
 
 from .models import CMusic, Album, Artist
 from .export_admin import AlbumResource, CMusicResource, ArtistResource
-from .tasks import create_single_music_post_task, create_album_post_task
+from .tasks import create_single_music_post_task, create_album_post_task, create_artist_wordpress_task
 from .views import start_new_crawl
 from .utils import checking_task_status
 from .forms import CMusicForm
@@ -95,7 +93,7 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     )
 
     def change_view(self, request, object_id, **kwargs):
-        if '_sned_to_wp' in request.POST:
+        if '_send_to_wp' in request.POST:
             instance = self.get_object(request, object_id)
             if instance.post_type == CMusic.SINGLE_TYPE:
                 create_single_music_post_task.apply_async(args=(object_id,))
@@ -159,12 +157,12 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     )
 
     def change_view(self, request, object_id, **kwargs):
-        if '_sned_to_wp' in request.POST:
+        if '_send_to_wp' in request.POST:
             create_album_post_task.apply_async(args=(object_id,))
             messages.info(request, _('creating new album on wordpress'))
         return super().change_view(request, object_id, **kwargs)
-    # custom fields
 
+    # custom fields
     def get_thumbnail(self, obj):
         from django.utils.html import escape
         return mark_safe(f'<img src="{escape(obj.file_thumbnail.url if obj.file_thumbnail else obj.link_thumbnail)}"'
@@ -177,17 +175,40 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
 
     # actions
     def send_to_WordPress(self, request, queryset):
-        create_album_post_task.apply_async(args=([q.id for q in queryset]))
+        queryset = queryset.filter(is_approved=True)
+        for q in queryset:
+            if q.is_approved is False:
+                messages.error(request, _(f'This artist is not approved! {q}'))
+
+        create_artist_wordpress_task.apply_async(args=([q.id for q in queryset]))
         messages.info(request, _('selected albums created at wordpress!'))
 
 
 @admin.register(Artist)
 class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     resource_class = ArtistResource
+    change_form_template = 'changes.html'
     list_display = ['name', 'id', 'name_en', 'note', 'name_fa', 'created_time']
     search_fields = ['name_en', 'name_fa', 'note']
     readonly_fields = ('id',)
     ordering = ['-id']
+
+    def change_view(self, request, object_id, **kwargs):
+        if '_send_to_wp' in request.POST:
+            obj = Artist.objects.get(id=object_id)
+
+            if obj.file_thumbnail or obj.is_approved:
+                create_artist_wordpress_task.apply_async(args=(object_id,))
+                messages.info(request, _('creating new album on wordpress'))
+            else:
+                messages.error(request, _('file is required!'))
+
+        return super().change_view(request, object_id, **kwargs)
+
+    # actions
+    def send_to_WordPress(self, request, queryset):
+        create_album_post_task.apply_async(args=([q.id for q in queryset]))
+        messages.info(request, _('selected albums created at wordpress!'))
 
 
 admin.site.empty_value_display = "Empty"

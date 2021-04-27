@@ -6,7 +6,13 @@ from celery.schedules import crontab
 
 from .crawler import NicMusicCrawler, Ganja2MusicCrawler
 from .utils import stop_duplicate_task, WordPressClient
-from .models import CMusic, Album
+from .models import CMusic, Album, Artist
+
+
+@shared_task
+def create_artist_wordpress_task(*object_ids):
+    for q in Artist.objects.filter(id__in=object_ids):
+        WordPressClient(q).create_artist()
 
 
 @shared_task

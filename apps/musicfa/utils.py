@@ -105,11 +105,13 @@ class WordPressClient:
     urls = {
         'token': 'jwt-auth/v1/token',
         'validate-token': 'jwt-auth/v1/token/validate',
+        'artist': 'wp/v2/artist/',
         'media': 'wp/v2/media/',
         'album': 'wp/v2/album/',
         'single_music': 'wp/v2/music/',
+        'acf_fields_artist': 'acf/v3/artist/',
         'acf_fields_music': 'acf/v3/music/',
-        'acf_fields_album': 'acf/v3/album/'
+        'acf_fields_album': 'acf/v3/album/',
     }
 
     def __init__(self, instance):
@@ -117,7 +119,7 @@ class WordPressClient:
         This class will be used to create post (single music and album) at word press and update ACF fields
          (custom fields).
         Args:
-            instance: Instance is CMusic or Album object.
+            instance: Instance is CMusic or Album or Artist object.
         """
         logger.debug(f'[sending {type(instance)} to wordpress]-[WP_URL: {self.base_url}]')
         self.thumbnail_download_error = False
@@ -170,6 +172,34 @@ class WordPressClient:
         else:
             logger.debug(f'[JWT Token of WP is not valid or expired]-[token: {self.token}]')
             self.token = self.get_token()
+
+    def create_artist(self):
+        media_id = self.create_media()
+
+        payload_data = dict(
+            description=self.instance.description,
+            name=self.instance.name_fa,
+            slug=self.instance.name_fa.replace(' ', '-'),
+        )
+
+        req = self.post_request(
+            self.urls['artist'],
+            json_content=True,
+            auth=True,
+            json=payload_data,
+        )
+
+        if req.ok:
+            wp_id = req.json()['id']
+            logger.debug(f'[music posted successfully]-[wordpress id: {wp_id}]')
+            self.instance.wp_id = wp_id
+            self.instance.save()
+            fields = dict(artist_image=media_id)
+            self.update_acf_fields(fields, )
+
+        else:
+            logger.error(f'[creating artist failed]-[obj id: {self.instance.id}]-[status code: {req.status_code}]')
+        return req
 
     def create_single_music(self):
         """
@@ -232,7 +262,7 @@ class WordPressClient:
 
             self.update_acf_fields(fields, f"{self.urls['acf_fields_music']}{self.instance.wp_post_id}/")
         else:
-            logger.error(f'[creating single music post failed]-[obj id: {self.instance.id}]-[obj type: {type(self.instance)}]-[status code: {req.status_code}]')
+            logger.error(f'[creating single music post failed]-[obj id: {self.instance.id}]-[status code: {req.status_code}]')
 
     def create_album(self):
         """
