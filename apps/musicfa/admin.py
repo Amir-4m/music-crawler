@@ -111,6 +111,11 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     get_thumbnail.short_description = _('current thumbnail')
 
     def send_to_WordPress(self, request, queryset):
+        not_approved_artists = queryset.filter(artist__wp_id='')
+        for q in not_approved_artists:
+            messages.error(request, _(f'please approve artist of this music {q}'))
+
+        queryset = queryset.exclude(artist__wp_id='')
         # creating the album post from tracks of it
         create_album_post_task.apply_async(
             args=tuple(
@@ -158,8 +163,13 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
 
     def change_view(self, request, object_id, **kwargs):
         if '_send_to_wp' in request.POST:
-            create_album_post_task.apply_async(args=(object_id,))
-            messages.info(request, _('creating new album on wordpress'))
+            album = Album.objects.get(id=object_id)
+            if album.artist.wp_id != '':
+                create_album_post_task.apply_async(args=(object_id,))
+                messages.info(request, _('creating new album on wordpress'))
+            else:
+                messages.error(request, _(f'This artist is not approved! {album.artist}'))
+
         return super().change_view(request, object_id, **kwargs)
 
     # custom fields
@@ -192,23 +202,26 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     search_fields = ['name_en', 'name_fa', 'note']
     readonly_fields = ('id',)
     ordering = ['-id']
+    actions = ['send_to_WordPress']
 
     def change_view(self, request, object_id, **kwargs):
         if '_send_to_wp' in request.POST:
             obj = Artist.objects.get(id=object_id)
 
-            if obj.file_thumbnail or obj.is_approved:
+            if obj.file_thumbnail and obj.is_approved and obj.wp_id == '':
                 create_artist_wordpress_task.apply_async(args=(object_id,))
-                messages.info(request, _('creating new album on wordpress'))
+                messages.info(request, _('creating new artist on wordpress'))
             else:
-                messages.error(request, _('file is required!'))
+                messages.error(request, _('file is required or artist already exist in wordpress!'))
 
         return super().change_view(request, object_id, **kwargs)
 
     # actions
     def send_to_WordPress(self, request, queryset):
-        create_album_post_task.apply_async(args=([q.id for q in queryset]))
-        messages.info(request, _('selected albums created at wordpress!'))
+        create_album_post_task.apply_async(
+            args=([q.id for q in queryset.filter(wp_id='')])
+        )
+        messages.info(request, _('selected artist created at wordpress!'))
 
 
 admin.site.empty_value_display = "Empty"

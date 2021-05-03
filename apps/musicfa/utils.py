@@ -194,8 +194,13 @@ class WordPressClient:
             logger.debug(f'[music posted successfully]-[wordpress id: {wp_id}]')
             self.instance.wp_id = wp_id
             self.instance.save()
-            fields = dict(artist_image=media_id)
-            self.update_acf_fields(fields, )
+            fields = dict(
+                fields=dict(
+                    artist_image=media_id,
+                    about_the_artist=self.instance.description
+                )
+            )
+            self.update_acf_fields(fields, f"{self.urls['acf_fields_artist']}{wp_id}/")
 
         else:
             logger.error(f'[creating artist failed]-[obj id: {self.instance.id}]-[status code: {req.status_code}]')
@@ -218,6 +223,7 @@ class WordPressClient:
             author=9,
             format='standard',
             categories=[self.instance.wp_category_id],
+            artist=[self.instance.artist.wp_id],
             featured_media=media_id,
         )
         req = self.post_request(
@@ -290,6 +296,7 @@ class WordPressClient:
             excerpt=self.instance.album_name_en,
             author=9,
             format='standard',
+            artist=[self.instance.artist.wp_id],
             categories=[self.instance.wp_category_id],
             featured_media=media_id
         )
