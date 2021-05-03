@@ -25,11 +25,13 @@ class UploadTo:
         try:
             path = self.path_creator(instance) or f'{filename}'
         except Exception as e:
-            logger.error(f'[creating file path failed]-[exc: {e}]-[obj id: {instance.id}]-[obj type: {type(instance)}]-[file: {filename}]')
+            logger.error(
+                f'[creating file path failed]-[exc: {e}]-[obj id: {instance.id}]-[obj type: {type(instance)}]-[file: {filename}]')
         else:
             path = path.replace(' ', '')
             path = f'crawled/{path}'
-            logger.debug(f'[saving new file "{path}"]-[obj id: {instance.id}]-[obj type: {type(instance)}]-[file: {filename}]')
+            logger.debug(
+                f'[saving new file "{path}"]-[obj id: {instance.id}]-[obj type: {type(instance)}]-[file: {filename}]')
             return path
 
     def path_creator(self, instance):
@@ -96,6 +98,7 @@ def stop_duplicate_task(func):
         if file_lock:
             file_lock.close()
         return True
+
     return inner_function
 
 
@@ -140,7 +143,8 @@ class WordPressClient:
             r = requests.request(method, url, **kwargs)
             r.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            logger.error(f'[request failed]-[exc: HTTP ERROR]-[response: {e.response.text}]-[status code: {e.response.status_code}]-[URL: {url}]')
+            logger.error(
+                f'[request failed]-[exc: HTTP ERROR]-[response: {e.response.text}]-[status code: {e.response.status_code}]-[URL: {url}]')
             raise
         except Exception as e:
             logger.error(f"[request failed]-[exc: {e}]-[URL: {url}]")
@@ -197,7 +201,9 @@ class WordPressClient:
             fields = dict(
                 fields=dict(
                     artist_image=media_id,
-                    about_the_artist=self.instance.description
+                    about_the_artist=self.instance.description,
+                    # field_5e38aad180d21=media_id,
+                    # field_5e38aa3f08bf7=self.instance.description
                 )
             )
             self.update_acf_fields(fields, f"{self.urls['acf_fields_artist']}{wp_id}/")
@@ -268,7 +274,8 @@ class WordPressClient:
 
             self.update_acf_fields(fields, f"{self.urls['acf_fields_music']}{self.instance.wp_post_id}/")
         else:
-            logger.error(f'[creating single music post failed]-[obj id: {self.instance.id}]-[status code: {req.status_code}]')
+            logger.error(
+                f'[creating single music post failed]-[obj id: {self.instance.id}]-[status code: {req.status_code}]')
 
     def create_album(self):
         """
@@ -367,7 +374,7 @@ class WordPressClient:
 
     def download_music_file(self, url, field_name, instance):
         from .crawler import Crawler
-        
+
         logger.debug(f'[downloading {field_name}]-[obj: {instance}]-[URL: {url}] ')
         file = Crawler.download_content(url)
         setattr(instance, field_name, file)
@@ -424,4 +431,3 @@ def fix_link_128():
             # c.save()
         else:
             print("Empty 128 link")
-
