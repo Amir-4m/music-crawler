@@ -183,7 +183,7 @@ class WordPressClient:
         payload_data = dict(
             description=self.instance.description,
             name=self.instance.name_fa,
-            slug=self.instance.name_fa.replace(' ', '-'),
+            slug=self.instance.name_fa,
         )
 
         req = self.post_request(
@@ -221,7 +221,7 @@ class WordPressClient:
         payload_data = dict(
             title=self.instance.title,
             content=f"{self.instance.get_artist_info()}\n{self.instance.lyrics}",
-            slug=self.instance.song_name_en,
+            slug=self.instance.song_name_fa,
             status='publish',  # publish, private, draft, pending, future, auto-draft
             excerpt=self.instance.song_name_en,
             author=9,
@@ -296,7 +296,7 @@ class WordPressClient:
         payload_data = dict(
             title=self.instance.title,
             content=f"{self.instance.get_artist_info()}",
-            slug=self.instance.album_name_en,
+            slug=self.instance.album_name_fa,
             status='publish',  # publish, private, draft, pending, future, auto-draft
             excerpt=self.instance.album_name_en,
             author=9,
