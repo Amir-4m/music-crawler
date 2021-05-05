@@ -199,11 +199,9 @@ class WordPressClient:
             self.instance.wp_id = wp_id
             self.instance.save()
             fields = dict(
-                fields=dict(
+                acf_fields=dict(
                     artist_image=media_id,
                     about_the_artist=self.instance.description,
-                    # field_5e38aad180d21=media_id,
-                    # field_5e38aa3f08bf7=self.instance.description
                 )
             )
             self.update_acf_fields(fields, f"{self.urls['acf_fields_artist']}{wp_id}/")
@@ -248,7 +246,7 @@ class WordPressClient:
             )
             # ACF fields of single music
             fields = dict(
-                fields=dict(
+                acf_fields=dict(
                     artist_name_persian=self.instance.artist.name_fa,
                     artist_name_english=self.instance.artist.name_en,
                     music_name_persian=self.instance.song_name_fa,
@@ -256,19 +254,19 @@ class WordPressClient:
                 ))
             # 128 link
             if self.instance.file_mp3_128:
-                fields['fields']['link_128'] = self.instance.get_absolute_wp_url_128()
+                fields['acf_fields']['link_128'] = self.instance.get_absolute_wp_url_128()
             else:
                 logger.debug(f'[file_mp3_128 field is empty]-[obj: {self.instance}]')
-                fields['fields']['link_128'] = self.download_music_file(
+                fields['acf_fields']['link_128'] = self.download_music_file(
                     self.instance.link_mp3_128, 'file_mp3_128', self.instance
                 ).get_absolute_wp_url_128()
 
             # 320 link
             if self.instance.file_mp3_320:
-                fields['fields']['link_320'] = self.instance.get_absolute_wp_url_320()
+                fields['acf_fields']['link_320'] = self.instance.get_absolute_wp_url_320()
             else:
                 logger.debug(f'[file_mp3_320 field is empty]-[obj: {self.instance}]')
-                fields['fields']['link_320'] = self.download_music_file(
+                fields['acf_fields']['link_320'] = self.download_music_file(
                     self.instance.link_mp3_128, 'file_mp3_320', self.instance
                 ).get_absolute_wp_url_320()
 
@@ -287,7 +285,7 @@ class WordPressClient:
         media_id = self.create_media()
 
         musics_link = "".join([
-            f"<a href={music.get_absolute_wp_url_320() if music.get_absolute_wp_url_320() else self.download_music_file(music.link_mp3_320, 'file_mp3_320', music).get_absolute_url_320()}>"
+            f"<a href={music.get_absolute_wp_url_320() if music.get_absolute_wp_url_320() else self.download_music_file(music.link_mp3_320, 'file_mp3_320', music).get_absolute_wp_url_320()}>"
             f"{music.song_name_fa or music.song_name_en}</a></br>"
             for music in CMusic.objects.filter(album=self.instance)
         ])  # track's link
@@ -321,7 +319,7 @@ class WordPressClient:
 
             # ACF fields of album
             fields = dict(
-                fields=dict(
+                acf_fields=dict(
                     artist_name_persian=self.instance.artist.name_fa,
                     artist_name_english=self.instance.artist.name_en,
                     music_name_persian=self.instance.album_name_en,
@@ -398,10 +396,10 @@ class WordPressClient:
             json=fields,
         )
         if req.ok:
-            logger.debug(f'[ACF field updated successfully]-[wordpress id: {self.instance.wp_post_id}]')
+            logger.debug(f'[ACF field updated successfully]-[instance id: {self.instance.id}]')
         else:
             logger.error(
-                f'[updating the ACF fields failed]-[wordpress id: {self.instance.wp_post_id}]-[status code: {req.status_code}]')
+                f'[updating the ACF fields failed]-[instance id: {self.instance.id}]-[status code: {req.status_code}]')
 
 
 def delete_empty_albums():

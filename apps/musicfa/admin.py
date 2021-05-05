@@ -95,11 +95,12 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     def change_view(self, request, object_id, **kwargs):
         if '_send_to_wp' in request.POST:
             instance = self.get_object(request, object_id)
-            if instance.post_type == CMusic.SINGLE_TYPE:
+            if instance.post_type == CMusic.SINGLE_TYPE and instance.artist.wp_id != '':
                 create_single_music_post_task.apply_async(args=(object_id,))
                 messages.info(request, _('creating new single music on wordpress'))
             else:
-                messages.error(request, _('please send the album of this music' + f'{instance.album}'))
+                messages.error(request, _(
+                    'Please check the artist of music or send the album of this music' + f'{instance.album}'))
         return super().change_view(request, object_id, **kwargs)
 
     def get_thumbnail(self, obj):
@@ -185,10 +186,9 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
 
     # actions
     def send_to_WordPress(self, request, queryset):
-        queryset = queryset.filter(is_approved=True)
-        for q in queryset:
-            if q.is_approved is False:
-                messages.error(request, _(f'This artist is not approved! {q}'))
+        not_approved_artists = queryset.filter(artist__wp_id='')
+        for q in not_approved_artists:
+            messages.error(request, _(f'please approve artist of this album {q}'))
 
         create_artist_wordpress_task.apply_async(args=([q.id for q in queryset]))
         messages.info(request, _('selected albums created at wordpress!'))
@@ -219,7 +219,7 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     # actions
     def send_to_WordPress(self, request, queryset):
         create_album_post_task.apply_async(
-            args=([q.id for q in queryset.filter(wp_id='')])
+            args=([q.id for q in queryset.filter(wp_id='', is_approved=True)])
         )
         messages.info(request, _('selected artist created at wordpress!'))
 
