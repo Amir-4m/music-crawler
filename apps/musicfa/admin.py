@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.contrib.admin import SimpleListFilter
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
@@ -13,6 +14,47 @@ from .utils import checking_task_status
 from .forms import CMusicForm
 from .admin_filters import AlbumFilter, ArtistFilter
 
+
+class NullFilterSpec(SimpleListFilter):
+    title = u''
+    parameter_name = u''
+
+    def lookups(self, request, model_admin):
+        return (
+            ('1', _('Has value'), ),
+            ('0', _('None'), ),
+        )
+
+    def queryset(self, request, queryset):
+        kwargs = {
+        '%s'%self.parameter_name : None,
+        }
+        if self.value() == '0':
+            return queryset.filter(**kwargs)
+        if self.value() == '1':
+            return queryset.exclude(**kwargs)
+        return queryset
+
+
+class WPIDNullFilterSpec(NullFilterSpec):
+    title = u'wordpress id'
+    parameter_name = u'wp_post_id'
+
+
+class WebsiteCrawledFilter(admin.SimpleListFilter):
+    title = _('website')
+    parameter_name = 'website'
+
+    def lookups(self, request, model_admin):
+        return (1, _('nic music')), (0, _('ganja2'))
+
+    def queryset(self, request, queryset):
+        if self.value() == "0":
+            return queryset.filter(page_url__contains='ganja2music')
+        if self.value() == "1":
+            return queryset.filter(page_url__contains='nicmusic')
+
+        return queryset
 
 class AutoFilter:
     """
@@ -70,7 +112,11 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     list_display = (
         "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'website_name'
     )
-    list_filter = [ArtistFilter, AlbumFilter, 'is_downloaded', 'post_type', 'status']
+    list_filter = [
+        ArtistFilter, AlbumFilter, WebsiteCrawledFilter, WPIDNullFilterSpec,
+        'created_time', 'published_date', 'is_downloaded',
+        'post_type', 'status'
+    ]
     search_fields = ['song_name_fa', 'song_name_en']
     readonly_fields = [
         'album', 'get_thumbnail', 'site_id', 'is_downloaded', 'wp_post_id', 'published_date', 'album', 'post_type'
@@ -146,7 +192,9 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     raw_id_fields = ['artist']
     list_display = ("name", 'artist', 'status', 'created_time', 'get_track_number', 'website_name')
     search_fields = ['album_name_en', 'album_name_fa', 'title']
-    list_filter = [ArtistFilter, 'is_downloaded', 'status']
+    list_filter = [
+        ArtistFilter, WebsiteCrawledFilter, 'created_time', 'published_date', 'is_downloaded', 'status'
+    ]
     ordering = ['-id']
     readonly_fields = ['get_thumbnail', 'site_id', 'wp_post_id']
     actions = (*ExportActionMixin.actions, 'send_to_WordPress')

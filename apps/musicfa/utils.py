@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 import logging
@@ -429,3 +430,22 @@ def fix_link_128():
             # c.save()
         else:
             print("Empty 128 link")
+
+
+class DuplicateHandler:
+
+    def __init__(self):
+        from .models import CMusic
+
+        with open('song.csv', newline='') as csvfile:
+            data = csv.DictReader(csvfile, delimiter=',')
+
+            for row in data:
+
+                # CMusic.objects.filter(
+                #     song_name_fa=row['music_name_persian'],
+                #     song_name_en=row['music_name_english'],
+                #     post_type=CMusic.SINGLE_TYPE
+                # ).update(wp_post_id=row['ID'])
+
+                CMusic.objects.filter(artist__name_fa=row[''])
