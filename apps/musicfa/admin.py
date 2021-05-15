@@ -125,7 +125,7 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     raw_id_fields = ['artist']
     actions = (*ExportActionMixin.actions, 'send_to_WordPress', 'translate')
     list_display = (
-        "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'updated_time'
+        "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'website_name'
     )
     list_filter = [
         ArtistFilter, AlbumFilter, WebsiteCrawledFilter, WPIDNullFilterSpec,
