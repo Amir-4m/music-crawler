@@ -1,4 +1,3 @@
-import csv
 import json
 import os
 import logging
@@ -9,6 +8,7 @@ from django.core.cache import cache
 
 import requests
 from pid import PidFile
+from finglish import f2p
 
 logger = logging.getLogger(__file__)
 file_handle = None
@@ -432,20 +432,38 @@ def fix_link_128():
             print("Empty 128 link")
 
 
-class DuplicateHandler:
+class PersianNameHandler:
 
-    def __init__(self):
+    @staticmethod
+    def update_single_musics(queryset):
         from .models import CMusic
 
-        with open('song.csv', newline='') as csvfile:
-            data = csv.DictReader(csvfile, delimiter=',')
+        musics = queryset.filter(song_name_fa='')
+        for m in musics:
+            m.song_name_fa = f2p(m.song_name_en)
 
-            for row in data:
+        CMusic.objects.bulk_update(musics, ['song_name_fa', 'updated_time'])
+        return musics.count()
 
-                # CMusic.objects.filter(
-                #     song_name_fa=row['music_name_persian'],
-                #     song_name_en=row['music_name_english'],
-                #     post_type=CMusic.SINGLE_TYPE
-                # ).update(wp_post_id=row['ID'])
+    @staticmethod
+    def update_albums(queryset):
+        from .models import Album
 
-                CMusic.objects.filter(artist__name_fa=row[''])
+        albums = queryset.filter(album_name_fa='')
+        for a in albums:
+            a.album_name_fa = f2p(a.album_name_en)
+
+        Album.objects.bulk_update(albums, ['album_name_fa', 'updated_time'])
+        return albums.count()
+
+    @staticmethod
+    def update_artists(queryset):
+        from .models import Artist
+
+        artists = queryset.filter(name_fa='')
+        for a in artists:
+            a.name_fa = f2p(a.name_en)
+
+        Artist.objects.bulk_update(artists, ['name_fa', 'updated_time'])
+        return artists.count()
+

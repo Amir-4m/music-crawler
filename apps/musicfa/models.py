@@ -54,7 +54,7 @@ class Album(models.Model):
 
     title = models.CharField(_("title"), max_length=250, blank=True)
     album_name_en = models.CharField(_("album name en"), max_length=250, blank=True)
-    album_name_fa = models.CharField(_("album name en"), max_length=250, blank=True)
+    album_name_fa = models.CharField(_("album name fa"), max_length=250, blank=True)
 
     artist = models.ForeignKey('Artist', on_delete=models.CASCADE, verbose_name=_('artist'), blank=True)
 

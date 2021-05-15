@@ -10,7 +10,7 @@ from .models import CMusic, Album, Artist
 from .export_admin import AlbumResource, CMusicResource, ArtistResource
 from .tasks import create_single_music_post_task, create_album_post_task, create_artist_wordpress_task
 from .views import start_new_crawl
-from .utils import checking_task_status
+from .utils import checking_task_status, PersianNameHandler
 from .forms import CMusicForm
 from .admin_filters import AlbumFilter, ArtistFilter
 
@@ -18,17 +18,16 @@ from .admin_filters import AlbumFilter, ArtistFilter
 class NullFilterSpec(SimpleListFilter):
     title = u''
     parameter_name = u''
+    parameter_value = ''
 
     def lookups(self, request, model_admin):
         return (
             ('1', _('Has value'), ),
-            ('0', _('None'), ),
+            ('0', _('empty'), ),
         )
 
     def queryset(self, request, queryset):
-        kwargs = {
-        '%s'%self.parameter_name : None,
-        }
+        kwargs = {'%s' % self.parameter_name: self.parameter_value}
         if self.value() == '0':
             return queryset.filter(**kwargs)
         if self.value() == '1':
@@ -36,9 +35,25 @@ class NullFilterSpec(SimpleListFilter):
         return queryset
 
 
+class SongNameFaNullFilterSpec(NullFilterSpec):
+    title = u'song persian name'
+    parameter_name = u'song_name_fa'
+
+
+class AlbumNameFaNullFilterSpec(NullFilterSpec):
+    title = u'album persian name'
+    parameter_name = u'album_name_fa'
+
+
+class ArtistNameFaNullFilterSpec(NullFilterSpec):
+    title = u'artist persian name'
+    parameter_name = u'name_fa'
+
+
 class WPIDNullFilterSpec(NullFilterSpec):
     title = u'wordpress id'
     parameter_name = u'wp_post_id'
+    parameter_value = None
 
 
 class WebsiteCrawledFilter(admin.SimpleListFilter):
@@ -108,14 +123,14 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     change_form_template = 'changes.html'
     change_list_template = 'change_list.html'
     raw_id_fields = ['artist']
-    actions = (*ExportActionMixin.actions, 'send_to_WordPress')
+    actions = (*ExportActionMixin.actions, 'send_to_WordPress', 'translate')
     list_display = (
-        "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'website_name'
+        "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'updated_time'
     )
     list_filter = [
         ArtistFilter, AlbumFilter, WebsiteCrawledFilter, WPIDNullFilterSpec,
         'created_time', 'published_date', 'is_downloaded',
-        'post_type', 'status'
+        'post_type', 'status', SongNameFaNullFilterSpec
     ]
     search_fields = ['song_name_fa', 'song_name_en']
     readonly_fields = [
@@ -182,6 +197,11 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
         )
         messages.info(request, _('selected musics created at wordpress!'))
 
+    def translate(self, request, queryset):
+        messages.info(request, _('wait...'))
+        number = PersianNameHandler.update_single_musics(queryset)
+        messages.info(request, _(f'{number} Music updated. Translate is complete!'))
+
 
 @admin.register(Album)
 class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
@@ -193,11 +213,12 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     list_display = ("name", 'artist', 'status', 'created_time', 'get_track_number', 'website_name')
     search_fields = ['album_name_en', 'album_name_fa', 'title']
     list_filter = [
-        ArtistFilter, WebsiteCrawledFilter, 'created_time', 'published_date', 'is_downloaded', 'status'
+        ArtistFilter, WebsiteCrawledFilter, 'created_time', 'published_date', 'is_downloaded', 'status',
+        AlbumNameFaNullFilterSpec
     ]
     ordering = ['-id']
     readonly_fields = ['get_thumbnail', 'site_id', 'wp_post_id']
-    actions = (*ExportActionMixin.actions, 'send_to_WordPress')
+    actions = (*ExportActionMixin.actions, 'send_to_WordPress', 'translate')
     fieldsets = (
         ('Album', {'fields': ('title', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
         (
@@ -241,6 +262,11 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
         create_artist_wordpress_task.apply_async(args=([q.id for q in queryset]))
         messages.info(request, _('selected albums created at wordpress!'))
 
+    def translate(self, request, queryset):
+        messages.info(request, _('wait...'))
+        number = PersianNameHandler.update_albums(queryset)
+        messages.info(request, _(f'{number} Album updated. Translate is complete!'))
+
 
 @admin.register(Artist)
 class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
@@ -248,9 +274,10 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     change_form_template = 'changes.html'
     list_display = ['name', 'id', 'name_en', 'note', 'name_fa', 'created_time']
     search_fields = ['name_en', 'name_fa', 'note']
+    list_filter = [ArtistNameFaNullFilterSpec]
     readonly_fields = ('id',)
     ordering = ['-id']
-    actions = ['send_to_WordPress']
+    actions = ['send_to_WordPress', 'translate']
 
     def change_view(self, request, object_id, **kwargs):
         if '_send_to_wp' in request.POST:
@@ -270,6 +297,11 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
             args=([q.id for q in queryset.filter(wp_id='', is_approved=True)])
         )
         messages.info(request, _('selected artist created at wordpress!'))
+
+    def translate(self, request, queryset):
+        messages.info(request, _('wait...'))
+        number = PersianNameHandler.update_artists(queryset)
+        messages.info(request, _(f'{number} Artist updated. Translate is complete!'))
 
 
 admin.site.empty_value_display = "Empty"
