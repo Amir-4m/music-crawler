@@ -152,7 +152,7 @@ class CMusic(models.Model):
         return urlparse(self.page_url).netloc
 
     def __str__(self):
-        return f"{self.name}-{self.artist}"
+        return f"{self.name}"
 
     def get_artist_info(self):
         return f"{self.artist.name_fa}\n{self.artist.name_en}"
