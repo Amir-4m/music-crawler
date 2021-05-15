@@ -13,7 +13,7 @@ class Artist(models.Model):
     created_time = models.DateTimeField(_('created time'), auto_now_add=True)
     updated_time = models.DateTimeField(_('updated time'), auto_now=True)
 
-    wp_id = models.CharField(_('wordpress ip'), max_length=30, blank=True)
+    wp_id = models.CharField(_('wordpress id'), max_length=30, blank=True)
 
     name_en = models.CharField(_('full name en'), max_length=150, unique=True)
     name_fa = models.CharField(_('full name fa'), max_length=150, blank=True)
@@ -54,7 +54,7 @@ class Album(models.Model):
 
     title = models.CharField(_("title"), max_length=250, blank=True)
     album_name_en = models.CharField(_("album name en"), max_length=250, blank=True)
-    album_name_fa = models.CharField(_("album name en"), max_length=250, blank=True)
+    album_name_fa = models.CharField(_("album name fa"), max_length=250, blank=True)
 
     artist = models.ForeignKey('Artist', on_delete=models.CASCADE, verbose_name=_('artist'), blank=True)
 
@@ -152,7 +152,7 @@ class CMusic(models.Model):
         return urlparse(self.page_url).netloc
 
     def __str__(self):
-        return self.name
+        return f"{self.name}"
 
     def get_artist_info(self):
         return f"{self.artist.name_fa}\n{self.artist.name_en}"

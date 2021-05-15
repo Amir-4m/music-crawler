@@ -17,3 +17,5 @@ django-import-export
 psycopg2-binary
 python-memcached
 django-admin-autocomplete-filter==0.6.1
+
+finglish
