@@ -440,9 +440,17 @@ class PersianNameHandler:
 
         musics = queryset.filter(song_name_fa='')
         for m in musics:
-            m.song_name_fa = f2p(m.song_name_en)
+            if m.post_type == CMusic.SINGLE_TYPE:
+                title = m.title.split('New Track By')
+                title[0] = f2p(title[0].strip())
+                title[1] = m.artist.name
+                m.song_name_fa = '-'.join(title)
 
-        CMusic.objects.bulk_update(musics, ['song_name_fa', 'updated_time'])
+            if m.post_type == CMusic.ALBUM_MUSIC_TYPE:
+                m.song_name_fa = f2p(m.song_name_en)
+                m.title = f'{m.song_name_fa}-{m.artist.name}'
+
+        CMusic.objects.bulk_update(musics, ['song_name_fa', 'title', 'updated_time'])
         return musics.count()
 
     @staticmethod
@@ -451,7 +459,10 @@ class PersianNameHandler:
 
         albums = queryset.filter(album_name_fa='')
         for a in albums:
-            a.album_name_fa = f2p(a.album_name_en)
+            title = a.title.split('New Track By')
+            title[0] = f2p(title[0])
+            title[1] = a.artist.name
+            a.album_name_fa = ''.join(title)
 
         Album.objects.bulk_update(albums, ['album_name_fa', 'updated_time'])
         return albums.count()
