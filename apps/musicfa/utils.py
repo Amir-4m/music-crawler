@@ -435,16 +435,16 @@ def fix_link_128():
 class PersianNameHandler:
 
     @staticmethod
-    def update_single_musics(queryset):
+    def update_single_musics(musics):
         from .models import CMusic
 
-        musics = queryset.filter(song_name_fa='')
+        # musics = queryset.filter(song_name_fa='')
         for m in musics:
             if m.post_type == CMusic.SINGLE_TYPE:
                 title = m.title.split('New Track By')
-                title[0] = f2p(title[0].strip())
-                title[1] = m.artist.name
-                m.song_name_fa = '-'.join(title)
+                m.song_name_fa = f2p(title[0].strip())
+                # title[1] = m.artist.name
+                # m.song_name_fa = '-'.join(title)
 
             if m.post_type == CMusic.ALBUM_MUSIC_TYPE:
                 m.song_name_fa = f2p(m.song_name_en)
@@ -454,24 +454,24 @@ class PersianNameHandler:
         return musics.count()
 
     @staticmethod
-    def update_albums(queryset):
+    def update_albums(albums):
         from .models import Album
 
-        albums = queryset.filter(album_name_fa='')
+        # albums = queryset.filter(album_name_fa='')
         for a in albums:
             title = a.title.split('New Track By')
-            title[0] = f2p(title[0])
-            title[1] = a.artist.name
-            a.album_name_fa = ''.join(title)
+            a.album_name_fa = f2p(title[0])
+            # title[1] = a.artist.name
+            # a.album_name_fa = ''.join(title)
 
         Album.objects.bulk_update(albums, ['album_name_fa', 'updated_time'])
         return albums.count()
 
     @staticmethod
-    def update_artists(queryset):
+    def update_artists(artists):
         from .models import Artist
 
-        artists = queryset.filter(name_fa='')
+        # artists = queryset.filter(name_fa='')
         for a in artists:
             a.name_fa = f2p(a.name_en)
 
