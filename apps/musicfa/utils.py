@@ -478,3 +478,21 @@ class PersianNameHandler:
         Artist.objects.bulk_update(artists, ['name_fa', 'updated_time'])
         return artists.count()
 
+
+def update_artists_by_wordpress():
+    from .models import Artist
+    import csv
+    result = []
+    with open('Artist-Export-2021-May-09-121222.csv') as f:
+        file = csv.DictReader(f)
+        for i, row in enumerate(file):
+
+            try:
+                a = Artist.objects.get(name_fa=row['Term Name'])
+            except (Artist.DoesNotExist, Artist.MultipleObjectsReturned):
+                pass
+
+            a.wp_id = row['Term ID']
+            result.append(a)
+
+    Artist.objects.bulk_update(result, ['wp_id', 'updated_time'])

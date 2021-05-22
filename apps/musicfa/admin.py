@@ -56,6 +56,11 @@ class WPIDNullFilterSpec(NullFilterSpec):
     parameter_value = None
 
 
+class WPIDArtistNullFilterSpec(NullFilterSpec):
+    title = u'wordpress id'
+    parameter_name = u'wp_id'
+
+
 class WebsiteCrawledFilter(admin.SimpleListFilter):
     title = _('website')
     parameter_name = 'website'
@@ -70,6 +75,7 @@ class WebsiteCrawledFilter(admin.SimpleListFilter):
             return queryset.filter(page_url__contains='nicmusic')
 
         return queryset
+
 
 class AutoFilter:
     """
@@ -274,10 +280,10 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     change_form_template = 'changes.html'
     list_display = ['name', 'id', 'name_en', 'note', 'name_fa', 'created_time']
     search_fields = ['name_en', 'name_fa', 'note']
-    list_filter = [ArtistNameFaNullFilterSpec]
+    list_filter = [ArtistNameFaNullFilterSpec, WPIDArtistNullFilterSpec]
     readonly_fields = ('id',)
     ordering = ['-id']
-    actions = ['send_to_WordPress', 'translate']
+    actions = [*ExportActionMixin.actions, 'send_to_WordPress', 'translate']
 
     def change_view(self, request, object_id, **kwargs):
         if '_send_to_wp' in request.POST:
