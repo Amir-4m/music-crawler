@@ -8,7 +8,7 @@ class CMusicResource(resources.ModelResource):
         model = CMusic
         fields = (
             'id', 'song_name_en', 'song_name_fa', 'artist__name_en', 'artist__name_fa', 'artist_id', 'album',
-            'website_name', 'title'
+            'website_name', 'title', 'wp_post_id'
         )
 
 
@@ -17,7 +17,7 @@ class AlbumResource(resources.ModelResource):
         model = Album
         fields = (
             'id', 'album_name_en', 'album_name_fa', 'artist__name_en', 'artist__name_fa', 'artist_id', 'album',
-            'website_name', 'title'
+            'website_name', 'title', 'wp_post_id'
         )
 
 
@@ -25,6 +25,6 @@ class ArtistResource(resources.ModelResource):
     class Meta:
         model = Artist
         fields = (
-            'id', 'name_fa', 'name_en'
+            'id', 'name_fa', 'name_en', 'wp_id', 'created_time'
         )
 
