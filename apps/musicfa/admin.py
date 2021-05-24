@@ -278,10 +278,10 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
 class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     resource_class = ArtistResource
     change_form_template = 'changes.html'
-    list_display = ['name', 'id', 'name_en', 'note', 'name_fa', 'created_time']
-    search_fields = ['name_en', 'name_fa', 'note']
+    list_display = ['name', 'id', 'name_en', 'note', 'name_fa', 'wp_id', 'created_time', 'updated_time']
+    search_fields = ['name_en', 'name_fa', 'note', 'wp_id']
     list_filter = [ArtistNameFaNullFilterSpec, WPIDArtistNullFilterSpec]
-    readonly_fields = ('id',)
+    readonly_fields = ('id', 'updated_time', 'created_time')
     ordering = ['-id']
     actions = [*ExportActionMixin.actions, 'send_to_WordPress', 'translate']
 
