@@ -300,7 +300,7 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     # actions
     def send_to_WordPress(self, request, queryset):
         create_artist_wordpress_task.apply_async(
-            args=([q.id for q in queryset])  # .filter(wp_id='', is_approved=True)
+            args=(list(queryset.values_list('id', flat=True)))  # .filter(wp_id='', is_approved=True)
         )
         messages.info(request, _('selected artist created at wordpress!'))
 
