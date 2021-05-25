@@ -265,7 +265,7 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
         for q in not_approved_artists:
             messages.error(request, _(f'please approve artist of this album {q}'))
 
-        create_artist_wordpress_task.apply_async(args=([q.id for q in queryset]))
+        create_album_post_task.apply_async(args=([q.id for q in queryset]))
         messages.info(request, _('selected albums created at wordpress!'))
 
     def translate(self, request, queryset):
@@ -299,8 +299,8 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
 
     # actions
     def send_to_WordPress(self, request, queryset):
-        create_album_post_task.apply_async(
-            args=([q.id for q in queryset.filter(wp_id='', is_approved=True)])
+        create_artist_wordpress_task.apply_async(
+            args=([q.id for q in queryset])  # .filter(wp_id='', is_approved=True)
         )
         messages.info(request, _('selected artist created at wordpress!'))
 
