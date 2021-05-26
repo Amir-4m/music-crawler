@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
+from django.db.models import Count, Q
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
@@ -59,6 +60,17 @@ class WPIDNullFilterSpec(NullFilterSpec):
 class WPIDArtistNullFilterSpec(NullFilterSpec):
     title = u'wordpress id'
     parameter_name = u'wp_id'
+
+
+class BIOArtistNullFilterSpec(NullFilterSpec):
+    title = u'Artist Bio'
+    parameter_name = u'description'
+
+
+class ImageArtistNullFilterSpec(NullFilterSpec):
+    title = u'Artist Image'
+    parameter_name = u'file_thumbnail'
+    parameter_value = None
 
 
 class WebsiteCrawledFilter(admin.SimpleListFilter):
@@ -265,7 +277,7 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
         for q in not_approved_artists:
             messages.error(request, _(f'please approve artist of this album {q}'))
 
-        create_artist_wordpress_task.apply_async(args=([q.id for q in queryset]))
+        create_album_post_task.apply_async(args=([q.id for q in queryset]))
         messages.info(request, _('selected albums created at wordpress!'))
 
     def translate(self, request, queryset):
@@ -278,9 +290,12 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
 class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     resource_class = ArtistResource
     change_form_template = 'changes.html'
-    list_display = ['name', 'id', 'name_en', 'note', 'name_fa', 'wp_id', 'created_time', 'updated_time']
+    list_display = [
+        'name', 'name_en', 'name_fa', 'note', 'wp_id', 'created_time', 'updated_time', 'albums', 'single_musics'
+    ]
     search_fields = ['name_en', 'name_fa', 'note', 'wp_id']
-    list_filter = [ArtistNameFaNullFilterSpec, WPIDArtistNullFilterSpec]
+    list_filter = [
+        ArtistNameFaNullFilterSpec, WPIDArtistNullFilterSpec, BIOArtistNullFilterSpec, ImageArtistNullFilterSpec]
     readonly_fields = ('id', 'updated_time', 'created_time')
     ordering = ['-id']
     actions = [*ExportActionMixin.actions, 'send_to_WordPress', 'translate']
@@ -297,10 +312,18 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
 
         return super().change_view(request, object_id, **kwargs)
 
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        queryset = queryset.annotate(
+            _albums=Count('album', distinct=True),
+            _single_music=Count('cmusic', distinct=True)
+        )
+        return queryset
+
     # actions
     def send_to_WordPress(self, request, queryset):
-        create_album_post_task.apply_async(
-            args=([q.id for q in queryset.filter(wp_id='', is_approved=True)])
+        create_artist_wordpress_task.apply_async(
+            args=(list(queryset.filter(wp_id='', is_approved=True).values_list('id', flat=True)))
         )
         messages.info(request, _('selected artist created at wordpress!'))
 
@@ -308,6 +331,16 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
         messages.info(request, _('wait...'))
         number = PersianNameHandler.update_artists(queryset)
         messages.info(request, _(f'{number} Artist updated. Translate is complete!'))
+
+    def single_musics(self, obj):
+        return obj._single_music
+    single_musics.short_description = _('single musics number')
+    single_musics.admin_order_field = '_single_music'
+
+    def albums(self, obj):
+        return obj._albums
+    albums.short_description = _('albums number')
+    albums.admin_order_field = '_albums'
 
 
 admin.site.empty_value_display = "Empty"
