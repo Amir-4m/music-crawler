@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
@@ -60,6 +60,16 @@ class WPIDNullFilterSpec(NullFilterSpec):
 class WPIDArtistNullFilterSpec(NullFilterSpec):
     title = u'wordpress id'
     parameter_name = u'wp_id'
+
+
+class WPIDArtistNullFilterSpec(NullFilterSpec):
+    title = u'wordpress id'
+    parameter_name = u'wp_id'
+
+
+class MusicAlbumWPIDArtistNullFilterSpec(NullFilterSpec):
+    title = u'wordpress id of artist'
+    parameter_name = u'artist__wp_id'
 
 
 class BIOArtistNullFilterSpec(NullFilterSpec):
@@ -146,7 +156,7 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
         "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'website_name'
     )
     list_filter = [
-        ArtistFilter, AlbumFilter, WebsiteCrawledFilter, WPIDNullFilterSpec,
+        ArtistFilter, AlbumFilter, WebsiteCrawledFilter, WPIDNullFilterSpec, MusicAlbumWPIDArtistNullFilterSpec,
         'created_time', 'published_date', 'is_downloaded',
         'post_type', 'status', SongNameFaNullFilterSpec
     ]
@@ -232,7 +242,7 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     search_fields = ['album_name_en', 'album_name_fa', 'title']
     list_filter = [
         ArtistFilter, WebsiteCrawledFilter, 'created_time', 'published_date', 'is_downloaded', 'status',
-        AlbumNameFaNullFilterSpec
+        AlbumNameFaNullFilterSpec, WPIDNullFilterSpec, MusicAlbumWPIDArtistNullFilterSpec
     ]
     ordering = ['-id']
     readonly_fields = ['get_thumbnail', 'site_id', 'wp_post_id']
@@ -295,7 +305,8 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     ]
     search_fields = ['name_en', 'name_fa', 'note', 'wp_id']
     list_filter = [
-        ArtistNameFaNullFilterSpec, WPIDArtistNullFilterSpec, BIOArtistNullFilterSpec, ImageArtistNullFilterSpec]
+        ArtistNameFaNullFilterSpec, WPIDArtistNullFilterSpec, BIOArtistNullFilterSpec, ImageArtistNullFilterSpec
+    ]
     readonly_fields = ('id', 'updated_time', 'created_time')
     ordering = ['-id']
     actions = [*ExportActionMixin.actions, 'send_to_WordPress', 'translate']
