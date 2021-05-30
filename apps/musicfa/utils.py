@@ -463,8 +463,7 @@ class PersianNameHandler:
         # albums = queryset.filter(album_name_fa='')
         for a in albums:
             name_en = a.album_name_en.split('-')
-            name_fa = f2p(name_en[0])
-            name_fa += f' - {f2p(name_en[1])}'
+            name_fa = f'{f2p(name_en[1])}'
             a.album_name_fa = name_fa
 
         Album.objects.bulk_update(albums, ['album_name_fa', 'updated_time'])
