@@ -462,10 +462,10 @@ class PersianNameHandler:
 
         # albums = queryset.filter(album_name_fa='')
         for a in albums:
-            title = a.title.split('New Track By')
-            a.album_name_fa = f2p(title[0])
-            # title[1] = a.artist.name
-            # a.album_name_fa = ''.join(title)
+            name_en = a.album_name_en.split('-')
+            name_fa = f2p(name_en[0])
+            name_fa += f' - {f2p(name_en[1])}'
+            a.album_name_fa = name_fa
 
         Album.objects.bulk_update(albums, ['album_name_fa', 'updated_time'])
         return albums.count()
