@@ -53,6 +53,8 @@ class Album(models.Model):
     published_date = models.DateField(_("published date"), max_length=20)
 
     title = models.CharField(_("title"), max_length=250, blank=True)
+    title_tag = models.CharField(_('title tag'), max_length=150, blank=True)
+
     album_name_en = models.CharField(_("album name en"), max_length=250, blank=True)
     album_name_fa = models.CharField(_("album name fa"), max_length=250, blank=True)
 
@@ -113,6 +115,7 @@ class CMusic(models.Model):
     published_date = models.DateField(_("published date"), max_length=20)
 
     title = models.CharField(_("title"), max_length=250, blank=True)
+    title_tag = models.CharField(_('title tag'), max_length=150, blank=True)
     lyrics = models.TextField(_("lyrics"), blank=True)
     song_name_fa = models.CharField(_("song name in fa"), max_length=200, blank=True)
     song_name_en = models.CharField(_("song name in en"), max_length=200)

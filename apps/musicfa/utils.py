@@ -225,7 +225,6 @@ class WordPressClient:
         payload_data = dict(
             title=self.instance.title,
             content=f"{self.instance.get_artist_info()}\n{self.instance.lyrics}",
-            slug=self.instance.song_name_fa,
             status='publish',  # publish, private, draft, pending, future, auto-draft
             excerpt=self.instance.song_name_en,
             author=9,
@@ -234,6 +233,13 @@ class WordPressClient:
             artist=[self.instance.artist.wp_id],
             featured_media=media_id,
         )
+        if 'ganja' in self.instance.page_url:
+            payload_data.update(
+                dict(slug=f"{self.instance.song_name_fa}-{self.instance.artist.name}")
+            )
+        else:
+            payload_data.update(dict(slug=f"{self.instance.song_name_fa}"))
+
         req = self.post_request(
             self.urls['single_music'],
             json_content=True,
@@ -444,10 +450,19 @@ class PersianNameHandler:
         # musics = queryset.filter(song_name_fa='')
         for m in musics:
             if m.post_type == CMusic.SINGLE_TYPE:
-                title = m.title.split('New Track By')
-                m.song_name_fa = f2p(title[0].strip())
-                # title[1] = m.artist.name
-                # m.song_name_fa = '-'.join(title)
+                try:
+                    name_fa = m.title_tag.split('|')[1].replace('آهنگ جدید', '').strip()
+                except IndexError:
+                    name_fa = ''
+
+                name_fa_len = len(name_fa)
+                for correct_name in m.artist.correct_names:
+                    name_fa = name_fa.replace(correct_name, '')  # removing the name of artist if find it
+
+                if len(name_fa) == name_fa_len:
+                    name_fa = ''
+
+                m.song_name_fa = name_fa  # updating this field
 
             if m.post_type == CMusic.ALBUM_MUSIC_TYPE:
                 m.song_name_fa = f2p(m.song_name_en)
@@ -498,3 +513,29 @@ def update_artists_by_wordpress():
             result.append(a)
 
     Artist.objects.bulk_update(result, ['wp_id', 'updated_time'])
+
+
+def update_title_tag_field_ganja2():
+    import requests
+    from apps.musicfa.models import CMusic, Album
+    from bs4 import BeautifulSoup
+
+    # updating musics
+    musics = CMusic.objects.filter(page_url__contains='ganja2', post_type=CMusic.SINGLE_TYPE)
+    for m in musics:
+        req = requests.get(m.page_url)
+        soup = BeautifulSoup(req.text, "html.parser")
+        title_tag = soup.find('title').get_text()
+        m.title_tag = title_tag
+
+    CMusic.objects.bulk_update(musics, ['updated_time', 'title_tag'])
+
+    # updating albums
+    albums = Album.objects.filter(page_url__contains='ganja2')
+    for a in albums:
+        req = requests.get(a.page_url)
+        soup = BeautifulSoup(req.text, "html.parser")
+        title_tag = soup.find('title').get_text()
+        a.title_tag = title_tag
+
+
