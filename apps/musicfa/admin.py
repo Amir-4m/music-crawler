@@ -248,7 +248,7 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     readonly_fields = ['get_thumbnail', 'site_id', 'wp_post_id']
     actions = (*ExportActionMixin.actions, 'send_to_WordPress', 'translate')
     fieldsets = (
-        ('Album', {'fields': ('title', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
+        ('Album', {'fields': ('title', 'title_tag', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
         (
             'Extra Data', {
                 'classes': ('collapse',), 'fields': ('page_url', 'site_id', 'wp_category_id', 'wp_post_id')

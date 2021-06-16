@@ -19,7 +19,7 @@ class Artist(models.Model):
     name_fa = models.CharField(_('full name fa'), max_length=150, blank=True)
 
     note = models.CharField(_('note'), max_length=150, blank=True)
-    description = models.TextField(_('description'), blank=True)
+    description = models.TextField(_('bio'), blank=True)
 
     is_approved = models.BooleanField(_('is approved'), default=False)
     correct_names = ArrayField(models.CharField(max_length=150), verbose_name=_('correct names'), null=True)
