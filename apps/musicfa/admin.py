@@ -166,7 +166,7 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     ]
     ordering = ['-id']
     fieldsets = (
-        ('Music', {'fields': ('title', 'song_name_fa', 'song_name_en', 'artist', 'lyrics', 'status', 'album')}),
+        ('Music', {'fields': ('title', 'title_tag', 'song_name_fa', 'song_name_en', 'artist', 'lyrics', 'status', 'album')}),
         (
             'Extra Data', {
                 'classes': ('collapse',), 'fields': (
@@ -227,7 +227,7 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
 
     def translate(self, request, queryset):
         messages.info(request, _('wait...'))
-        number = PersianNameHandler.update_single_musics(queryset)
+        number = PersianNameHandler.update_single_musics(queryset.filter(page_url__contains='ganja2music'))
         messages.info(request, _(f'{number} Music updated. Translate is complete!'))
 
 
@@ -248,7 +248,7 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     readonly_fields = ['get_thumbnail', 'site_id', 'wp_post_id']
     actions = (*ExportActionMixin.actions, 'send_to_WordPress', 'translate')
     fieldsets = (
-        ('Album', {'fields': ('title', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
+        ('Album', {'fields': ('title', 'title_tag', 'album_name_en', 'album_name_fa', 'artist', 'status')}),
         (
             'Extra Data', {
                 'classes': ('collapse',), 'fields': ('page_url', 'site_id', 'wp_category_id', 'wp_post_id')

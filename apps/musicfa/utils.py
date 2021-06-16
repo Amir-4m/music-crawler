@@ -8,7 +8,6 @@ from django.core.cache import cache
 
 import requests
 from pid import PidFile
-from finglish import f2p
 
 logger = logging.getLogger(__file__)
 file_handle = None
@@ -225,7 +224,6 @@ class WordPressClient:
         payload_data = dict(
             title=self.instance.title,
             content=f"{self.instance.get_artist_info()}\n{self.instance.lyrics}",
-            slug=self.instance.song_name_fa,
             status='publish',  # publish, private, draft, pending, future, auto-draft
             excerpt=self.instance.song_name_en,
             author=9,
@@ -234,6 +232,13 @@ class WordPressClient:
             artist=[self.instance.artist.wp_id],
             featured_media=media_id,
         )
+        if 'ganja' in self.instance.page_url:
+            payload_data.update(
+                dict(slug=f"{self.instance.song_name_fa}-{self.instance.artist.name}")
+            )
+        else:
+            payload_data.update(dict(slug=f"{self.instance.song_name_fa}"))
+
         req = self.post_request(
             self.urls['single_music'],
             json_content=True,
@@ -300,7 +305,6 @@ class WordPressClient:
         payload_data = dict(
             title=self.instance.title,
             content=f"{self.instance.get_artist_info()}",
-            slug=self.instance.album_name_fa,
             status='publish',  # publish, private, draft, pending, future, auto-draft
             excerpt=self.instance.album_name_en,
             author=9,
@@ -309,6 +313,13 @@ class WordPressClient:
             categories=[self.instance.wp_category_id],
             featured_media=media_id
         )
+        if 'ganja' in self.instance.page_url:
+            payload_data.update(
+                dict(slug=f"{self.instance.album_name_fa}-{self.instance.artist.name}")
+            )
+        else:
+            payload_data.update(dict(slug=f"{self.instance.album_name_fa}"))
+
         req = self.post_request(
             self.urls['album'],
             json_content=True,
@@ -438,20 +449,36 @@ def fix_link_128():
 class PersianNameHandler:
 
     @staticmethod
+    def get_name_fa(m):
+        """
+        :param m: CMusic or Album obj.
+        :return: name_fa field.
+        """
+        try:
+            name_fa = m.title_tag.split('|')[1].replace('آهنگ جدید', '').strip()
+        except IndexError:
+            name_fa = ''
+
+        name_fa_len = len(name_fa)
+        for correct_name in m.artist.correct_names + [m.artist.name_fa, m.artist.name_en]:
+            name_fa = name_fa.replace(correct_name, '')  # removing the name of artist if find it
+
+        if len(name_fa) == name_fa_len:
+            name_fa = ''
+        return name_fa
+
+    @staticmethod
     def update_single_musics(musics):
         from .models import CMusic
 
         # musics = queryset.filter(song_name_fa='')
         for m in musics:
             if m.post_type == CMusic.SINGLE_TYPE:
-                title = m.title.split('New Track By')
-                m.song_name_fa = f2p(title[0].strip())
-                # title[1] = m.artist.name
-                # m.song_name_fa = '-'.join(title)
+                m.song_name_fa = PersianNameHandler.get_name_fa(m)  # updating this field
 
-            if m.post_type == CMusic.ALBUM_MUSIC_TYPE:
-                m.song_name_fa = f2p(m.song_name_en)
-                m.title = f'{m.song_name_fa}-{m.artist.name}'
+            # if m.post_type == CMusic.ALBUM_MUSIC_TYPE:
+                # m.song_name_fa = f2p(m.song_name_en)
+                # m.title = f'{m.song_name_fa}-{m.artist.name}'
 
         CMusic.objects.bulk_update(musics, ['song_name_fa', 'title', 'updated_time'])
         return musics.count()
@@ -462,9 +489,7 @@ class PersianNameHandler:
 
         # albums = queryset.filter(album_name_fa='')
         for a in albums:
-            name_en = a.album_name_en.split('-')
-            name_fa = f'{f2p(name_en[1])}'
-            a.album_name_fa = name_fa
+            a.album_name_fa = PersianNameHandler.get_name_fa(a)  # updating this field
 
         Album.objects.bulk_update(albums, ['album_name_fa', 'updated_time'])
         return albums.count()
@@ -472,6 +497,7 @@ class PersianNameHandler:
     @staticmethod
     def update_artists(artists):
         from .models import Artist
+        from finglish import f2p
 
         # artists = queryset.filter(name_fa='')
         for a in artists:
@@ -498,3 +524,48 @@ def update_artists_by_wordpress():
             result.append(a)
 
     Artist.objects.bulk_update(result, ['wp_id', 'updated_time'])
+
+
+def update_title_tag_field_ganja2():
+    import requests
+    from apps.musicfa.models import CMusic, Album
+    from bs4 import BeautifulSoup
+
+    # updating musics
+    musics = CMusic.objects.filter(page_url__contains='ganja2', post_type=CMusic.SINGLE_TYPE)
+    for m in musics:
+        req = requests.get(m.page_url)
+        soup = BeautifulSoup(req.text, "html.parser")
+        title_tag = soup.find('title').get_text()
+        m.title_tag = title_tag
+
+    CMusic.objects.bulk_update(musics, ['updated_time', 'title_tag'])
+
+    # updating albums
+    albums = Album.objects.filter(page_url__contains='ganja2')
+    for a in albums:
+        req = requests.get(a.page_url)
+        soup = BeautifulSoup(req.text, "html.parser")
+        title_tag = soup.find('title').get_text()
+        a.title_tag = title_tag
+
+    Album.objects.bulk_update(albums, ['updated_time', 'title_tag'])
+
+
+def update_artist_bio_image():
+    import csv
+
+    from apps.musicfa.models import Artist
+    from apps.musicfa.crawler import Crawler
+
+    with open('artists_bio_and_image.csv') as f:
+        file = csv.DictReader(f)
+        for i, row in enumerate(file):
+            try:
+                a = Artist.objects.get(wp_id=row['artist_id'])
+                a.description = row['about_the_artist']
+                a.file_thumbnail = Crawler.download_content(row['artist_image'])
+                a.save()
+            except (Artist.DoesNotExist, Artist.MultipleObjectsReturned):
+                print('ERROR, \n')
+

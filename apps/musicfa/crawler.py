@@ -6,7 +6,6 @@ from urllib.parse import unquote, urlparse
 from django.core.validators import URLValidator
 from django.core.files import File
 from django.core.files.temp import NamedTemporaryFile
-from django.db.models import Q
 
 import requests
 from bs4 import BeautifulSoup
@@ -434,6 +433,9 @@ class Ganja2MusicCrawler(Crawler):
                 # Lyric
                 lyric = soup.find('div', class_='tab-pane fade in active').find('p')
 
+                # Title tag
+                title_tag = self.get_title_tag(soup)
+
                 artist = self.create_artist(name_en=artist_name_en)  # get or create Artist
                 kwargs = dict(
                     site_id=self.get_obj_site_id(post_page_url),
@@ -445,6 +447,7 @@ class Ganja2MusicCrawler(Crawler):
                         link_thumbnail=link_thumbnail,
                         lyrics=lyric.decode_contents() if lyric else '',
                         title=title,
+                        title_tag=title_tag,
                         published_date=publish_date,
                         post_type=CMusic.SINGLE_TYPE,
                         page_url=post_page_url,
@@ -474,6 +477,9 @@ class Ganja2MusicCrawler(Crawler):
                 site_id = self.get_obj_site_id(post_page_url)
                 artist = self.create_artist(name_en=artist_name_en)
 
+                # Title tag
+                title_tag = self.get_title_tag(soup)
+
                 defaults = dict(
                     artist=artist,
                     page_url=post_page_url,
@@ -481,6 +487,7 @@ class Ganja2MusicCrawler(Crawler):
                     link_mp3_320=link_320,
                     link_thumbnail=link_thumbnail,
                     title=title,
+                    title_tag=title_tag,
                     album_name_en=album_name_en,
                     published_date=publish_date,
                     site_id=site_id,
@@ -578,4 +585,7 @@ class Ganja2MusicCrawler(Crawler):
         if url.startswith('dl.ganja2music.com'):
             return f'http://{url}'
         return url
+
+    def get_title_tag(self, soup):
+        return soup.find('title').get_text()
 
