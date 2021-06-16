@@ -305,7 +305,6 @@ class WordPressClient:
         payload_data = dict(
             title=self.instance.title,
             content=f"{self.instance.get_artist_info()}",
-            slug=self.instance.album_name_fa,
             status='publish',  # publish, private, draft, pending, future, auto-draft
             excerpt=self.instance.album_name_en,
             author=9,
@@ -314,6 +313,13 @@ class WordPressClient:
             categories=[self.instance.wp_category_id],
             featured_media=media_id
         )
+        if 'ganja' in self.instance.page_url:
+            payload_data.update(
+                dict(slug=f"{self.instance.album_name_fa}-{self.instance.artist.name}")
+            )
+        else:
+            payload_data.update(dict(slug=f"{self.instance.album_name_fa}"))
+
         req = self.post_request(
             self.urls['album'],
             json_content=True,
