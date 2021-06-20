@@ -337,8 +337,8 @@ class WordPressClient:
                 acf_fields=dict(
                     artist_name_persian=self.instance.artist.name_fa,
                     artist_name_english=self.instance.artist.name_en,
-                    music_name_persian=self.instance.album_name_en,
-                    music_name_english=self.instance.album_name_fa,
+                    music_name_persian=self.instance.album_name_fa,
+                    music_name_english=self.instance.album_name_en,
                     album_link=musics_link
                 ))
             self.update_acf_fields(fields, f"{self.urls['acf_fields_album']}{self.instance.wp_post_id}/")
