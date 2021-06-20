@@ -1,6 +1,7 @@
 from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
 from django.db.models import Count
+from django.urls import reverse_lazy
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
@@ -307,7 +308,7 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     list_filter = [
         ArtistNameFaNullFilterSpec, WPIDArtistNullFilterSpec, BIOArtistNullFilterSpec, ImageArtistNullFilterSpec
     ]
-    readonly_fields = ('id', 'updated_time', 'created_time')
+    readonly_fields = ('id', 'updated_time', 'created_time', 'songs_of_artist', 'albums_of_artist')
     ordering = ['-id']
     actions = [*ExportActionMixin.actions, 'send_to_WordPress', 'translate']
 
@@ -352,6 +353,19 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
         return obj._albums
     albums.short_description = _('albums number')
     albums.admin_order_field = '_albums'
+
+    # custom fields
+    def get_a_tags(self, obj, field_rel, admin_name):
+        return ''.join([
+            f'{i}- <a href={reverse_lazy(f"admin:musicfa_{admin_name}_change", args=(m.id,))}>{m.name}</a></br>'
+            for i, m in enumerate(getattr(obj, field_rel).all(), 1)
+        ])
+
+    def songs_of_artist(self, obj):
+        return mark_safe(self.get_a_tags(obj, 'cmusic_set', 'cmusic'))
+
+    def albums_of_artist(self, obj):
+        return mark_safe(self.get_a_tags(obj, 'album_set', 'album'))
 
 
 admin.site.empty_value_display = "Empty"
