@@ -5,7 +5,7 @@ from celery.task import periodic_task
 from celery.schedules import crontab
 
 from .crawler import NicMusicCrawler, Ganja2MusicCrawler
-from .utils import stop_duplicate_task, WordPressClient
+from .utils import stop_duplicate_task, WordPressClient, update_title_tag_field_ganja2
 from .models import CMusic, Album, Artist
 
 
@@ -65,6 +65,11 @@ def periodic_crawler_nic():
     :return: None
     """
     collect_musics_nic()
+
+
+@periodic_task(run_every=crontab(minute="*/30"))
+def update_title_tag_field_ganja2_task():
+    update_title_tag_field_ganja2(200)
 
 
 @stop_duplicate_task

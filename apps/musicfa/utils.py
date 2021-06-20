@@ -481,8 +481,8 @@ class PersianNameHandler:
                     pass
 
             # if m.post_type == CMusic.ALBUM_MUSIC_TYPE:
-                # m.song_name_fa = f2p(m.song_name_en)
-                # m.title = f'{m.song_name_fa}-{m.artist.name}'
+            # m.song_name_fa = f2p(m.song_name_en)
+            # m.title = f'{m.song_name_fa}-{m.artist.name}'
 
         CMusic.objects.bulk_update(musics, ['song_name_fa', 'song_name_en', 'updated_time'])
         return musics.count()
@@ -530,28 +530,44 @@ def update_artists_by_wordpress():
     Artist.objects.bulk_update(result, ['wp_id', 'updated_time'])
 
 
-def update_title_tag_field_ganja2():
+def update_title_tag_field_ganja2(limit):
     import requests
     from apps.musicfa.models import CMusic, Album
     from bs4 import BeautifulSoup
 
     # updating musics
-    musics = CMusic.objects.filter(page_url__contains='ganja2', post_type=CMusic.SINGLE_TYPE)
+    musics = CMusic.objects.filter(
+        page_url__contains='ganja2',
+        post_type=CMusic.SINGLE_TYPE,
+        title_tag=''
+    )[:limit]
+
     for m in musics:
         req = requests.get(m.page_url)
         soup = BeautifulSoup(req.text, "html.parser")
         title_tag = soup.find('title').get_text()
         m.title_tag = title_tag
+        logger.debug(
+            f'[updating title_tag music field]-[obj id:{m.id}]-[status code: {req.status_code}]-'
+            f'[title: {title_tag}]-[url:{m.page_url}]'
+        )
 
     CMusic.objects.bulk_update(musics, ['updated_time', 'title_tag'])
 
     # updating albums
-    albums = Album.objects.filter(page_url__contains='ganja2')
+    albums = Album.objects.filter(
+        page_url__contains='ganja2',
+        title_tag=''
+    )[:limit]
     for a in albums:
         req = requests.get(a.page_url)
         soup = BeautifulSoup(req.text, "html.parser")
         title_tag = soup.find('title').get_text()
         a.title_tag = title_tag
+        logger.debug(
+            f'[updating title_tag album field]-[obj id:{a.id}]-[status code: {req.status_code}]-'
+            f'[title: {title_tag}]-[url:{a.page_url}]'
+        )
 
     Album.objects.bulk_update(albums, ['updated_time', 'title_tag'])
 
@@ -572,4 +588,3 @@ def update_artist_bio_image():
                 a.save()
             except (Artist.DoesNotExist, Artist.MultipleObjectsReturned):
                 print('ERROR, \n')
-
