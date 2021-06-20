@@ -475,12 +475,16 @@ class PersianNameHandler:
         for m in musics:
             if m.post_type == CMusic.SINGLE_TYPE:
                 m.song_name_fa = PersianNameHandler.get_name_fa(m)  # updating this field
+                try:
+                    m.song_name_en = m.song_name_en.split('-')[1].strip()
+                except Exception:
+                    pass
 
             # if m.post_type == CMusic.ALBUM_MUSIC_TYPE:
                 # m.song_name_fa = f2p(m.song_name_en)
                 # m.title = f'{m.song_name_fa}-{m.artist.name}'
 
-        CMusic.objects.bulk_update(musics, ['song_name_fa', 'title', 'updated_time'])
+        CMusic.objects.bulk_update(musics, ['song_name_fa', 'song_name_en', 'updated_time'])
         return musics.count()
 
     @staticmethod
