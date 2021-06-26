@@ -193,6 +193,8 @@ class WordPressClient:
         )
 
         if req.ok:
+            logger.info(f'[creating artist]-[payload: {payload_data}]-[instance id: {self.instance.id}]')
+
             wp_id = req.json()['id']
             logger.debug(f'[music posted successfully]-[wordpress id: {wp_id}]')
             self.instance.wp_id = wp_id
@@ -207,6 +209,8 @@ class WordPressClient:
                         about_the_artist=self.instance.description,
                     )
                 )
+                logger.info(f'[updating artist acf fields]-[payload: {fields}]')
+
                 self.update_acf_fields(fields, f"{self.urls['acf_fields_artist']}{wp_id}/")
 
         else:
@@ -238,13 +242,13 @@ class WordPressClient:
             )
         else:
             payload_data.update(dict(slug=f"{self.instance.song_name_fa}"))
-
         req = self.post_request(
             self.urls['single_music'],
             json_content=True,
             auth=True,
             json=payload_data,
         )
+        logger.info(f'[create single music]-[payload: {payload_data}]-[instance id: {self.instance.id}]')
 
         if req.ok:
             post_wp_id = req.json()['id']
@@ -279,6 +283,7 @@ class WordPressClient:
                     self.instance.link_mp3_128, 'file_mp3_320', self.instance
                 ).get_absolute_wp_url_320()
 
+            logger.info(f'[updating acf fields]-[payload: {fields}]-[instance id: {self.instance.id}]')
             self.update_acf_fields(fields, f"{self.urls['acf_fields_music']}{self.instance.wp_post_id}/")
         else:
             logger.error(
@@ -326,6 +331,8 @@ class WordPressClient:
             auth=True,
             json=payload_data,
         )
+        logger.info(f'[create album music]-[payload: {payload_data}]-[instance id: {self.instance.id}]')
+
         if req.ok:
             self.update_instance(
                 req.json()['id'],
@@ -341,6 +348,8 @@ class WordPressClient:
                     music_name_english=self.instance.album_name_en,
                     album_link=musics_link
                 ))
+            logger.info(f'[updating acf fields]-[payload: {fields}]-[instance id: {self.instance.id}]')
+
             self.update_acf_fields(fields, f"{self.urls['acf_fields_album']}{self.instance.wp_post_id}/")
 
     def create_media(self):
@@ -366,7 +375,9 @@ class WordPressClient:
                     {'Expires': '0'}
                 )},
             )
-            return req.json()['id']
+            media_id = req.json()['id']
+            logger.debug(f'[media uploaded]-[instance id: {self.instance.id}]-[media id: {media_id}]')
+            return media_id
         else:
             logger.debug(
                 f'[creating media failed]-[obj: {self.instance}]-[err: (thumbnail) has no file '
