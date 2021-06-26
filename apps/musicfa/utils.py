@@ -226,7 +226,7 @@ class WordPressClient:
 
         media_id = self.create_media()  # Create media for this music
         payload_data = dict(
-            title=self.instance.title,
+            title=f'دانلود آهنگ {self.instance.song_name_fa} از {self.instance.artist.name}',
             content=f"{self.instance.get_artist_info()}\n{self.instance.lyrics}",
             status='publish',  # publish, private, draft, pending, future, auto-draft
             excerpt=self.instance.song_name_en,
@@ -308,7 +308,7 @@ class WordPressClient:
         CMusic.objects.filter(album=self.instance).update(status=CMusic.APPROVED_STATUS)
 
         payload_data = dict(
-            title=self.instance.title,
+            title=f'دانلود آلبوم {self.instance.album_name_fa} از {self.instance.artist.name}',
             content=f"{self.instance.get_artist_info()}",
             status='publish',  # publish, private, draft, pending, future, auto-draft
             excerpt=self.instance.album_name_en,
