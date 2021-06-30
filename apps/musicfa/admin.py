@@ -1,5 +1,4 @@
 from django.contrib import admin, messages
-from django.contrib.admin import SimpleListFilter
 from django.db.models import Count
 from django.urls import reverse_lazy
 from django.utils.safestring import mark_safe
@@ -14,99 +13,11 @@ from .tasks import create_single_music_post_task, create_album_post_task, create
 from .views import start_new_crawl
 from .utils import checking_task_status, PersianNameHandler
 from .forms import CMusicForm
-from .admin_filters import AlbumFilter, ArtistFilter
-
-
-class NullFilterSpec(SimpleListFilter):
-    title = u''
-    parameter_name = u''
-    parameter_value = ''
-
-    def lookups(self, request, model_admin):
-        return (
-            ('1', _('Has value'), ),
-            ('0', _('empty'), ),
-        )
-
-    def queryset(self, request, queryset):
-        kwargs = {'%s' % self.parameter_name: self.parameter_value}
-        if self.value() == '0':
-            return queryset.filter(**kwargs)
-        if self.value() == '1':
-            return queryset.exclude(**kwargs)
-        return queryset
-
-
-class SongNameFaNullFilterSpec(NullFilterSpec):
-    title = u'song persian name'
-    parameter_name = u'song_name_fa'
-
-
-class AlbumNameFaNullFilterSpec(NullFilterSpec):
-    title = u'album persian name'
-    parameter_name = u'album_name_fa'
-
-
-class ArtistNameFaNullFilterSpec(NullFilterSpec):
-    title = u'artist persian name'
-    parameter_name = u'name_fa'
-
-
-class WPIDNullFilterSpec(NullFilterSpec):
-    title = u'wordpress id'
-    parameter_name = u'wp_post_id'
-    parameter_value = None
-
-
-class WPIDArtistNullFilterSpec(NullFilterSpec):
-    title = u'wordpress id'
-    parameter_name = u'wp_id'
-
-
-class WPIDArtistNullFilterSpec(NullFilterSpec):
-    title = u'wordpress id'
-    parameter_name = u'wp_id'
-
-
-class MusicAlbumWPIDArtistNullFilterSpec(NullFilterSpec):
-    title = u'wordpress id of artist'
-    parameter_name = u'artist__wp_id'
-
-
-class BIOArtistNullFilterSpec(NullFilterSpec):
-    title = u'Artist Bio'
-    parameter_name = u'description'
-
-
-class ImageArtistNullFilterSpec(NullFilterSpec):
-    title = u'Artist Image'
-    parameter_name = u'file_thumbnail'
-    parameter_value = None
-
-
-class WebsiteCrawledFilter(admin.SimpleListFilter):
-    title = _('website')
-    parameter_name = 'website'
-
-    def lookups(self, request, model_admin):
-        return (1, _('nic music')), (0, _('ganja2'))
-
-    def queryset(self, request, queryset):
-        if self.value() == "0":
-            return queryset.filter(page_url__contains='ganja2music')
-        if self.value() == "1":
-            return queryset.filter(page_url__contains='nicmusic')
-
-        return queryset
-
-
-class AutoFilter:
-    """
-    `admin.ModelAdmin` classes that has a filter field by `admin_auto_filters.filters.AutocompleteFilter`
-     should extends from this class.
-    """
-    class Media:
-        pass
+from .admin_filters import (
+    AlbumFilter, ArtistFilter, AutoFilter, WebsiteCrawledFilter, WPIDNullFilterSpec,
+    MusicAlbumWPIDArtistNullFilterSpec, AlbumNameFaNullFilterSpec, SongNameFaNullFilterSpec,
+    BIOArtistNullFilterSpec, ImageArtistNullFilterSpec, WPIDArtistNullFilterSpec, ArtistNameFaNullFilterSpec
+)
 
 
 class CMusicInline(admin.TabularInline):
@@ -302,25 +213,27 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
     resource_class = ArtistResource
     change_form_template = 'changes.html'
     list_display = [
-        'name', 'name_en', 'name_fa', 'note', 'wp_id', 'created_time', 'updated_time', 'albums', 'single_musics'
+        'name', 'name_en', 'name_fa', 'note', 'wp_id', 'created_time', 'updated_time', 'albums', 'single_musics',
+        'is_approved'
     ]
     search_fields = ['name_en', 'name_fa', 'note', 'wp_id']
     list_filter = [
-        ArtistNameFaNullFilterSpec, WPIDArtistNullFilterSpec, BIOArtistNullFilterSpec, ImageArtistNullFilterSpec
+        ArtistNameFaNullFilterSpec, WPIDArtistNullFilterSpec, BIOArtistNullFilterSpec, ImageArtistNullFilterSpec,
+        'is_approved'
     ]
     readonly_fields = ('id', 'updated_time', 'created_time', 'songs_of_artist', 'albums_of_artist')
     ordering = ['-id']
-    actions = [*ExportActionMixin.actions, 'send_to_WordPress', 'translate']
+    actions = [*ExportActionMixin.actions, 'send_to_WordPress', 'translate', 'approve_artists']
 
     def change_view(self, request, object_id, **kwargs):
         if '_send_to_wp' in request.POST:
             obj = Artist.objects.get(id=object_id)
 
-            if obj.file_thumbnail and obj.is_approved and obj.wp_id == '':
+            if obj.is_approved and obj.name_fa != '':
                 create_artist_wordpress_task.apply_async(args=(object_id,))
                 messages.info(request, _('creating new artist on wordpress'))
             else:
-                messages.error(request, _('file is required or artist already exist in wordpress!'))
+                messages.error(request, _('artist is not approved!'))
 
         return super().change_view(request, object_id, **kwargs)
 
@@ -334,10 +247,34 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
 
     # actions
     def send_to_WordPress(self, request, queryset):
+        # displays message of not approved artists!
+        for q in queryset:
+            if not q.is_approved:
+                messages.error(request, _(f'ID: {q.id} this artist is not approved!'))
+
+        # sending the approved artists
         create_artist_wordpress_task.apply_async(
-            args=(list(queryset.filter(wp_id='', is_approved=True).values_list('id', flat=True)))
+            args=(list(queryset.filter(is_approved=True).values_list('id', flat=True)))
         )
         messages.info(request, _('selected artist created at wordpress!'))
+
+    def approve_artists(self, request, queryset):
+        messages.info(
+            request,
+            _(f'Selected artists: {queryset.count()} - Approved artists: {queryset.exclude(name_fa="").count()} '
+              f'- Not approved artists: {queryset.filter(name_fa="").count()}')
+        )
+
+        for q in queryset:
+            if q.name_fa == '':
+                messages.error(request, _(f'ID: {q.id}, "full name fa" is empty! this artist is not approved!'))
+
+        updated_count = queryset.exclude(
+            name_fa=''
+        ).update(
+            is_approved=True
+        )
+        messages.info(request, _(f'{updated_count} artist updated!'))
 
     def translate(self, request, queryset):
         messages.info(request, _('wait...'))

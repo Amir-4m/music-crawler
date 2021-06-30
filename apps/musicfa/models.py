@@ -2,6 +2,7 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 
 from django_better_admin_arrayfield.models.fields import ArrayField
@@ -27,6 +28,10 @@ class Artist(models.Model):
     file_thumbnail = models.ImageField(
         _("file thumbnail photo"), upload_to=UploadTo('thumbnail'), null=True, blank=True
     )
+
+    def clean(self):
+        if self.name_fa == '' and self.is_approved:
+            raise ValidationError({'is_approved': 'full name fa is empty!'})
 
     @property
     def name(self):
