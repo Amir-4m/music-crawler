@@ -153,6 +153,9 @@ class Crawler:
                 q2 = Artist.objects.filter(correct_names__icontains=name)
                 artist = q1.intersection(q2).first()
 
+                if q1.count() == 0 or q2.count() == 0:
+                    artist = q1.difference(q2).first() or q2.difference(q1).first()
+
                 if artist is not None:
                     break
 
