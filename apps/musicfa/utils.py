@@ -178,7 +178,6 @@ class WordPressClient:
             self.token = self.get_token()
 
     def create_artist(self):
-
         payload_data = dict(
             description=self.instance.description,
             name=self.instance.name_fa,
@@ -199,19 +198,20 @@ class WordPressClient:
             logger.debug(f'[music posted successfully]-[wordpress id: {wp_id}]')
             self.instance.wp_id = wp_id
             self.instance.save()
+            media_id = ''
 
             if self.instance.file_thumbnail:
                 media_id = self.create_media()
 
-                fields = dict(
-                    acf_fields=dict(
-                        artist_image=media_id,
-                        about_the_artist=self.instance.description,
-                    )
+            fields = dict(
+                acf_fields=dict(
+                    artist_image=media_id,
+                    about_the_artist=self.instance.description,
                 )
-                logger.info(f'[updating artist acf fields]-[payload: {fields}]')
+            )
+            logger.info(f'[updating artist acf fields]-[payload: {fields}]')
 
-                self.update_acf_fields(fields, f"{self.urls['acf_fields_artist']}{wp_id}/")
+            self.update_acf_fields(fields, f"{self.urls['acf_fields_artist']}{wp_id}/")
 
         else:
             logger.error(f'[creating artist failed]-[obj id: {self.instance.id}]-[status code: {req.status_code}]')

@@ -149,7 +149,10 @@ class Crawler:
 
         try:
             for name in correct_names:
-                artist = Artist.objects.filter(correct_names__contains=[name]).first()
+                q1 = Artist.objects.filter(correct_names__contains=[name])
+                q2 = Artist.objects.filter(correct_names__icontains=name)
+                artist = q1.intersection(q2).first()
+
                 if artist is not None:
                     break
 
