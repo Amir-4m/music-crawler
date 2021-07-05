@@ -1,3 +1,5 @@
+import re
+
 from django.contrib import admin, messages
 from django.db.models import Count
 from django.urls import reverse_lazy
@@ -7,6 +9,7 @@ from django.utils.translation import ugettext_lazy as _
 from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
 from import_export.admin import ExportActionMixin
 
+from .crawler import Crawler
 from .models import CMusic, Album, Artist
 from .export_admin import AlbumResource, CMusicResource, ArtistResource
 from .tasks import create_single_music_post_task, create_album_post_task, create_artist_wordpress_task
@@ -35,6 +38,7 @@ class CMusicInline(admin.TabularInline):
 
     def get_download_link(self, obj):
         return mark_safe(f'<a href="{obj.link_mp3_320}">320 link</a>    <a href="{obj.link_mp3_128}">128 link</a>')
+
     get_download_link.short_description = _('download link')
 
 
@@ -63,7 +67,7 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
     change_form_template = 'changes.html'
     change_list_template = 'change_list.html'
     raw_id_fields = ['artist']
-    actions = (*ExportActionMixin.actions, 'send_to_WordPress', 'translate')
+    actions = (*ExportActionMixin.actions, 'send_to_WordPress', 'translate', 'update_artist')
     list_display = (
         "name", 'artist', "title", "post_type", 'status', 'is_downloaded', 'album', 'created_time', 'website_name'
     )
@@ -142,6 +146,15 @@ class CMusicAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
         number = PersianNameHandler.update_single_musics(queryset.filter(page_url__contains='ganja2music'))
         messages.info(request, _(f'{number} Music updated. Translate is complete!'))
 
+    def update_artist(self, request, queryset):
+        for music in queryset:
+            name = re.compile(r'(?<=By )[a-zA-Z ]+').findall(music.title)
+            if name:
+                artist = Crawler().create_artist(name_en=name[0])
+                music.artist = artist
+                music.save()
+        messages.info(request, _(f'Artists updated'))
+
 
 @admin.register(Album)
 class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
@@ -187,10 +200,12 @@ class AlbumAdmin(ExportActionMixin, ModelAdminDisplayTaskStatus):
         from django.utils.html import escape
         return mark_safe(f'<img src="{escape(obj.file_thumbnail.url if obj.file_thumbnail else obj.link_thumbnail)}"'
                          f' height="20%" width="20%"/>')
+
     get_thumbnail.short_description = _('current thumbnail')
 
     def get_track_number(self, obj):
         return CMusic.objects.filter(album=obj).count()
+
     get_track_number.short_description = _('current thumbnail')
 
     # actions
@@ -283,11 +298,13 @@ class ArtistAdmin(ExportActionMixin, admin.ModelAdmin, DynamicArrayMixin):
 
     def single_musics(self, obj):
         return obj._single_music
+
     single_musics.short_description = _('single musics number')
     single_musics.admin_order_field = '_single_music'
 
     def albums(self, obj):
         return obj._albums
+
     albums.short_description = _('albums number')
     albums.admin_order_field = '_albums'
 
