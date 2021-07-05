@@ -14,7 +14,7 @@ django-ckeditor
 django-import-export
 
 # database
-psycopg2-binary
+psycopg2-binary==2.8.6
 python-memcached
 django-admin-autocomplete-filter==0.6.1
 
