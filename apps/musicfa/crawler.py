@@ -150,7 +150,7 @@ class Crawler:
         try:
             for name in correct_names:
                 q1 = Artist.objects.filter(correct_names__contains=[name])
-                q2 = Artist.objects.filter(correct_names__icontains=name)
+                q2 = Artist.objects.filter(correct_names__iregex=fr'^\b{{name}}\b')
                 artist = q1.intersection(q2).first()
 
                 if q1.count() == 0 or q2.count() == 0:
