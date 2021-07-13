@@ -252,19 +252,12 @@ class NicMusicCrawler(Crawler):
                 title = soup.find("h1", class_="title").find("a").getText().strip()
                 title = title.encode().decode('utf-8-sig')
                 names = soup.find("div", class_="post-content").find_all("strong")
-                names_en = soup.find("div", class_="post-content").find_all("p")
-                name_en = ""
-                for name in names_en:
-                    name = name.get_text().encode().decode('utf-8-sig')
-                    for char in name:
-                        if char in alpha:
-                            name_en += char
-                song_name_start_index = name_en.index("Called ")
-                artist_name_start_index = name_en.index("By ")
-                artist_name_en = name_en[
-                                 artist_name_start_index + 2:song_name_start_index].strip().encode().decode(
-                    'utf-8-sig')
-                song_name_en = name_en[song_name_start_index + 6:].strip().encode().decode('utf-8-sig')
+
+                raw_name_en = urlparse(soup.find("a", class_="dl-320").attrs["href"].encode().decode('utf-8-sig')).path
+                raw_name_en = unquote(raw_name_en).split('/')[-1].replace('.mp3', '').split('-')
+                artist_name_en = raw_name_en[0]
+                song_name_en = raw_name_en[1]
+
                 categories = soup.find("div", class_="categories").find("a").get_text()
                 if len(names) > 0:
                     if categories not in ["آهنگ های گوناگون", "تک آهنگ های جدید"] and categories.startswith(
