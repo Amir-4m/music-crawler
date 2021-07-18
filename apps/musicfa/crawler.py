@@ -9,6 +9,7 @@ from django.core.files.temp import NamedTemporaryFile
 
 import requests
 from bs4 import BeautifulSoup
+from django.db.models import Q
 from khayyam import JalaliDate
 
 from .models import CMusic, Album, Artist
@@ -149,8 +150,8 @@ class Crawler:
 
         try:
             for name in correct_names:
-                q1 = Artist.objects.filter(correct_names__contains=[name])
-                q2 = Artist.objects.filter(correct_names__iregex=fr'^\b{{name}}\b')
+                q1 = Artist.objects.filter(Q(correct_names__contains=[name]) | Q(name_fa=name))
+                q2 = Artist.objects.filter(Q(correct_names__iregex=fr'^\b{{name}}\b') | Q(name_fa=name))
                 artist = q1.intersection(q2).first()
 
                 if q1.count() == 0 or q2.count() == 0:
